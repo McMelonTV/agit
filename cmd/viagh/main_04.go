@@ -45,5 +45,7 @@ Useful variables:
   VIAGH_GIT_EMAIL          Email for configured or both authorship
   VIAGH_OVERRIDE_GIT_IDENTITY
                            Set false to preserve existing Git identity config
+  VIAGH_OPENCODE_TRAILER   Append an opencode model attribution trailer when
+                           running as an opencode subprocess
 `)
 }

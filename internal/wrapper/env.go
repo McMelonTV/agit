@@ -23,6 +23,7 @@ var sensitiveEnvironment = []string{
 	"VIAGH_RUNTIME_REPOSITORY",
 	"VIAGH_ASKPASS",
 	coauthorTrailerEnv,
+	opencodeTrailerEnv,
 	activeTokenHashEnv,
 }
 

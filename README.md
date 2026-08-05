@@ -136,6 +136,23 @@ The bot login is derived from the authenticated App. `viagh` uses the bot accoun
 
 History-preserving operations such as cherry-pick, rebase, and applying patches may retain the original commit author by Git design. `viagh` still overrides the committer identity for the new commit. External `git-*` executables invoked directly are outside command classification; run them through `viagh exec` or configure their identity explicitly when they create commits.
 
+### OpenCode attribution trailer
+
+Set `VIAGH_OPENCODE_TRAILER=1` (or `--opencode-trailer`) to append a trailer identifying the opencode model and version that produced the commit. This is independent of Git authorship mode and applies to commit-producing commands whenever `viagh` runs as an opencode subprocess.
+
+```sh
+export VIAGH_OPENCODE_TRAILER=1
+viagh git commit -m 'fix: handle empty input'
+```
+
+The trailer is discovered from the local opencode server rather than from environment variables. When `OPENCODE=1` and `OPENCODE_PORT` are set, `viagh` queries the server for the session most recently active in the repository and records its model, reasoning variant, and opencode version:
+
+```
+Worked on by `opencode-go/deepseek-v4-flash:max` within `opencode 1.18.13`.
+```
+
+The reasoning variant is included only when it is not `default`. Discovery is best-effort: an unreachable server, missing credentials, or no matching session silently skips the trailer without failing the commit. The trailer is added before the `Co-authored-by` trailer and is idempotent on re-runs.
+
 ## Explicit wrapper mode
 
 ```sh
@@ -304,6 +321,7 @@ A command targeting a host other than `VIAGH_HOST` is passed to the real `gh` wi
 | `VIAGH_GIT_EMAIL` | Email for `configured` or `both` Git authorship; defaults to empty. |
 | `VIAGH_GIT_AUTHORSHIP` | `bot`, `configured`, or `both`; defaults to `bot`. |
 | `VIAGH_OVERRIDE_GIT_IDENTITY` | Override existing Git identity when true; defaults to true. Set false to preserve client configuration. |
+| `VIAGH_OPENCODE_TRAILER` | Append an opencode model attribution trailer to commit-producing Git commands when running as an opencode subprocess; defaults to false. |
 
 Equivalent global flags are accepted before the `viagh` subcommand. Run `viagh help` for the concise reference.
 

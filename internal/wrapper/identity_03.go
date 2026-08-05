@@ -22,6 +22,29 @@ func GitCommandIsAlias(realGit string, args, env []string) bool {
 	return err == nil && strings.TrimSpace(string(output)) != ""
 }
 
+// GitTopLevel reports the absolute working-tree root of the repository
+// selected by args, using the same leading options as the wrapped command.
+func GitTopLevel(realGit string, args, env []string) (string, bool) {
+	_, commandIndex, ok := GitCommand(args)
+	if !ok || strings.TrimSpace(realGit) == "" {
+		return "", false
+	}
+	prefix := append([]string(nil), args[:commandIndex]...)
+	if len(prefix) > 0 && prefix[len(prefix)-1] == "--" {
+		prefix = prefix[:len(prefix)-1]
+	}
+	query := append(prefix, "rev-parse", "--show-toplevel")
+	cmd := exec.Command(realGit, query...)
+	cmd.Env = env
+	cmd.Stderr = nil
+	output, err := cmd.Output()
+	if err != nil {
+		return "", false
+	}
+	dir := strings.TrimSpace(string(output))
+	return dir, dir != ""
+}
+
 func commitCreatingCommand(command string) bool {
 	switch command {
 	case "am", "cherry-pick", "commit", "commit-tree", "merge", "notes", "pull", "rebase", "revert", "stash", "tag":

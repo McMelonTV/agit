@@ -64,6 +64,7 @@ func TestSessionConfigurationOmitsPrivateKey(t *testing.T) {
 		GitEmail:            "agent@example.com",
 		GitAuthorship:       GitAuthorshipBoth,
 		OverrideGitIdentity: true,
+		OpenCodeTrailer:     true,
 	}
 	encoded, err := EncodeSession(cfg)
 	if err != nil {
@@ -89,11 +90,31 @@ func TestSessionConfigurationOmitsPrivateKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Owner != "acme" || !loaded.SessionRestricted || loaded.GitName != "Agent" || loaded.GitEmail != "agent@example.com" || loaded.GitAuthorship != GitAuthorshipBoth || !loaded.OverrideGitIdentity {
+	if loaded.Owner != "acme" || !loaded.SessionRestricted || loaded.GitName != "Agent" || loaded.GitEmail != "agent@example.com" || loaded.GitAuthorship != GitAuthorshipBoth || !loaded.OverrideGitIdentity || !loaded.OpenCodeTrailer {
 		t.Fatalf("unexpected loaded session config: %+v", loaded)
 	}
 	if loaded.PrivateKeyPath != "" || loaded.PrivateKeyPEM != "" {
 		t.Fatal("private key was restored into session config")
+	}
+}
+
+func TestOpenCodeTrailerFromEnv(t *testing.T) {
+	t.Setenv(SessionConfigEnv, "")
+	t.Setenv("VIAGH_OPENCODE_TRAILER", "1")
+	cfg, err := FromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.OpenCodeTrailer {
+		t.Fatal("VIAGH_OPENCODE_TRAILER=1 was not reflected in config")
+	}
+	t.Setenv("VIAGH_OPENCODE_TRAILER", "")
+	cfg, err = FromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.OpenCodeTrailer {
+		t.Fatal("VIAGH_OPENCODE_TRAILER should default to false")
 	}
 }
 

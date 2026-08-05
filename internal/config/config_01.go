@@ -43,6 +43,7 @@ type Config struct {
 	GitEmail            string        `json:"git_email,omitempty"`
 	GitAuthorship       string        `json:"git_authorship"`
 	OverrideGitIdentity bool          `json:"override_git_identity"`
+	OpenCodeTrailer     bool          `json:"opencode_trailer,omitempty"`
 	SessionRestricted   bool          `json:"session_restricted,omitempty"`
 }
 
@@ -74,6 +75,7 @@ func FromEnv() (Config, error) {
 		GitEmail:            os.Getenv("VIAGH_GIT_EMAIL"),
 		GitAuthorship:       firstNonEmpty(os.Getenv("VIAGH_GIT_AUTHORSHIP"), GitAuthorshipBot),
 		OverrideGitIdentity: true,
+		OpenCodeTrailer:     envBool("VIAGH_OPENCODE_TRAILER"),
 	}
 	if value, ok := os.LookupEnv("VIAGH_OVERRIDE_GIT_IDENTITY"); ok && strings.TrimSpace(value) != "" {
 		enabled, err := parseBool(value)
@@ -147,6 +149,7 @@ func Parse(args []string) (Config, []string, error) {
 	fs.StringVar(&cfg.GitEmail, "git-email", cfg.GitEmail, "Git author email used for configured or both authorship")
 	fs.StringVar(&cfg.GitAuthorship, "git-authorship", cfg.GitAuthorship, "Git authorship mode: bot, configured, or both")
 	fs.BoolVar(&cfg.OverrideGitIdentity, "override-git-identity", cfg.OverrideGitIdentity, "override inherited Git author and committer identity")
+	fs.BoolVar(&cfg.OpenCodeTrailer, "opencode-trailer", cfg.OpenCodeTrailer, "append an opencode model attribution trailer to commits")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, nil, err

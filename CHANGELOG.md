@@ -25,6 +25,7 @@
 - Package release binaries in executable-preserving archives for Linux, macOS, and Windows on amd64 and arm64.
 - Set Go 1.25 as the supported source-build baseline and reduce the CI matrix while retaining cross-platform and old-stable coverage.
 - Add a `viagh env KEY` command that prints a variable's value and origin (`env` or `env_file`).
+- Add an optional opencode attribution trailer that records the model, reasoning variant, and opencode version on commit-producing Git commands run as opencode subprocesses.
 
 ## 0.2.0
 

@@ -125,6 +125,13 @@ func SetCoauthorTrailer(env []string, trailer string) []string {
 	return SetEnv(env, coauthorTrailerEnv, trailer)
 }
 
+func SetOpenCodeTrailer(env []string, trailer string) []string {
+	if strings.TrimSpace(trailer) == "" {
+		return UnsetEnv(env, opencodeTrailerEnv)
+	}
+	return SetEnv(env, opencodeTrailerEnv, trailer)
+}
+
 func AppendCoauthorTrailer(message []byte, trailer string) []byte {
 	trailer = strings.TrimSpace(trailer)
 	if trailer == "" {
@@ -146,5 +153,10 @@ func AppendCoauthorTrailer(message []byte, trailer string) []byte {
 
 func CoauthorTrailerFromEnv(env []string) string {
 	value, _ := LookupEnv(env, coauthorTrailerEnv)
+	return value
+}
+
+func OpenCodeTrailerFromEnv(env []string) string {
+	value, _ := LookupEnv(env, opencodeTrailerEnv)
 	return value
 }

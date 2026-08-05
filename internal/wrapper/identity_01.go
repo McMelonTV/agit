@@ -7,6 +7,8 @@ import (
 
 const coauthorTrailerEnv = "VIAGH_COAUTHOR_TRAILER"
 
+const opencodeTrailerEnv = "VIAGH_OPENCODE_TRAILER"
+
 type GitIdentity struct {
 	Name  string
 	Email string
