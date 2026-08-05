@@ -154,63 +154,45 @@ func Parse(args []string) (Config, []string, error) {
 	if err := fs.Parse(args); err != nil {
 		return Config{}, nil, err
 	}
+	if base.SessionRestricted {
+		if err := validateRestrictedFlags(fs); err != nil {
+			return Config{}, nil, err
+		}
+	}
 	cfg, err = normalize(cfg)
 	if err != nil {
 		return Config{}, nil, err
 	}
-	if base.SessionRestricted {
-		if err := validateRestrictedOverrides(base, cfg); err != nil {
-			return Config{}, nil, err
-		}
-	}
 	return cfg, fs.Args(), nil
 }
 
-func validateRestrictedOverrides(base, current Config) error {
+func validateRestrictedFlags(fs *flag.FlagSet) error {
+	restricted := map[string]struct{}{
+		"app-id":                {},
+		"private-key":           {},
+		"host":                  {},
+		"api-url":               {},
+		"api-version":           {},
+		"cache-dir":             {},
+		"no-cache":              {},
+		"refresh-before":        {},
+		"http-timeout":          {},
+		"git-name":              {},
+		"git-email":             {},
+		"git-authorship":        {},
+		"override-git-identity": {},
+	}
+
 	var changed []string
-	if current.AppID != base.AppID {
-		changed = append(changed, "--app-id")
+	fs.Visit(func(f *flag.Flag) {
+		if _, ok := restricted[f.Name]; ok {
+			changed = append(changed, "--"+f.Name)
+		}
+	})
+	if len(changed) == 0 {
+		return nil
 	}
-	if current.PrivateKeyPath != "" || current.PrivateKeyPEM != "" || current.PrivateKeyBase64 != "" {
-		changed = append(changed, "--private-key")
-	}
-	if current.Host != base.Host {
-		changed = append(changed, "--host")
-	}
-	if current.APIURL != base.APIURL {
-		changed = append(changed, "--api-url")
-	}
-	if current.APIVersion != base.APIVersion {
-		changed = append(changed, "--api-version")
-	}
-	if current.CacheDir != base.CacheDir {
-		changed = append(changed, "--cache-dir")
-	}
-	if current.NoCache != base.NoCache {
-		changed = append(changed, "--no-cache")
-	}
-	if current.RefreshBefore != base.RefreshBefore {
-		changed = append(changed, "--refresh-before")
-	}
-	if current.HTTPTimeout != base.HTTPTimeout {
-		changed = append(changed, "--http-timeout")
-	}
-	if current.GitName != base.GitName {
-		changed = append(changed, "--git-name")
-	}
-	if current.GitEmail != base.GitEmail {
-		changed = append(changed, "--git-email")
-	}
-	if current.GitAuthorship != base.GitAuthorship {
-		changed = append(changed, "--git-authorship")
-	}
-	if current.OverrideGitIdentity != base.OverrideGitIdentity {
-		changed = append(changed, "--override-git-identity")
-	}
-	if len(changed) > 0 {
-		return fmt.Errorf("cannot override %s inside an active ghapp credential session; start a new top-level ghapp process instead", strings.Join(changed, ", "))
-	}
-	return nil
+	return fmt.Errorf("cannot override %s inside an active ghapp credential session; start a new top-level ghapp process instead", strings.Join(changed, ", "))
 }
 
 func EncodeSession(cfg Config) (string, error) {
