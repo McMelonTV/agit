@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -17,10 +18,7 @@ func TestExecGitShimUsesConfiguredAuthorship(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Git process integration is covered separately on Windows CI")
 	}
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 
 	stdout, stderr, code := runMainSubprocess(t, nil,
@@ -43,10 +41,7 @@ func TestDisabledGitIdentityOverridePreservesClientConfig(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Git process integration is covered separately on Windows CI")
 	}
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 	stdout, stderr, code := runMainSubprocess(t, nil,
 		"--override-git-identity=false",
@@ -67,10 +62,7 @@ func TestReadOnlyGitCommandDoesNotResolveBotIdentity(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Git process integration is covered separately on Windows CI")
 	}
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 	stdout, stderr, code := runMainSubprocess(t, nil,
 		"--app-id", "123",
@@ -90,6 +82,38 @@ func initializeIdentityRepository(t *testing.T, gitPath string) string {
 	runGitCommand(t, gitPath, dir, "config", "user.name", "Client User")
 	runGitCommand(t, gitPath, dir, "config", "user.email", "client@example.com")
 	return dir
+}
+
+// realGit locates the underlying Git executable, skipping the viagh git shim
+// when one is installed earlier on PATH. Tests must exercise the real Git
+// binary rather than viagh itself, otherwise --real-git points back at viagh.
+func realGit(t *testing.T) string {
+	t.Helper()
+	var viaghResolved string
+	if viaghPath, err := exec.LookPath("viagh"); err == nil {
+		if resolved, err := filepath.EvalSymlinks(viaghPath); err == nil {
+			viaghResolved = resolved
+		}
+	}
+	if gitPath, err := exec.LookPath("git"); err == nil {
+		resolved, err := filepath.EvalSymlinks(gitPath)
+		if err != nil || resolved != viaghResolved {
+			return gitPath
+		}
+	}
+	for _, candidate := range []string{
+		"/usr/bin/git",
+		"/bin/git",
+		"/usr/local/bin/git",
+		"/opt/homebrew/bin/git",
+	} {
+		info, err := os.Stat(candidate)
+		if err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
+			return candidate
+		}
+	}
+	t.Skip("real git binary not found")
+	return ""
 }
 
 func botIdentityServer(t *testing.T, slug string, id int64) *httptest.Server {

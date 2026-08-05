@@ -51,10 +51,7 @@ func TestAmbientRepositoryOnDifferentHostKeepsUserAuthentication(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is Unix-specific")
 	}
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	dir := t.TempDir()
 	runGitCommand(t, gitPath, dir, "init")
 	runGitCommand(t, gitPath, dir, "remote", "add", "origin", "https://github.other.example/acme/widgets.git")

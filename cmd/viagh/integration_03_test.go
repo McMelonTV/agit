@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -14,10 +13,7 @@ func TestDefaultGitAuthorshipUsesAppBotAndOverridesClientConfig(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Git hook integration is covered separately on Windows CI")
 	}
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 	keyPath := writeTestPrivateKey(t)
 	server := botIdentityServer(t, "test-app", 12345)
@@ -45,10 +41,7 @@ func TestConfiguredGitAuthorshipOverridesClientConfigWithoutAppLookup(t *testing
 	if runtime.GOOS == "windows" {
 		t.Skip("Git process integration is covered separately on Windows CI")
 	}
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 	stdout, stderr, code := runMainSubprocess(t, nil,
 		"--git-name", "Configured Agent",
@@ -73,10 +66,7 @@ func TestBothGitAuthorshipAddsBotCoauthorAndPreservesExistingHook(t *testing.T) 
 	if runtime.GOOS == "windows" {
 		t.Skip("shell hook integration is Unix-specific")
 	}
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 	hookDir := t.TempDir()
 	marker := filepath.Join(hookDir, "prepare-hook-called")
@@ -133,10 +123,7 @@ func TestConfiguredGitAuthorshipAppliesToCommitAlias(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Git process integration is covered separately on Windows CI")
 	}
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 	runGitCommand(t, gitPath, dir, "config", "alias.ci", "commit")
 
@@ -160,10 +147,7 @@ func TestIncompleteConfiguredGitIdentityFallsBackToBot(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Git process integration is covered separately on Windows CI")
 	}
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 	keyPath := writeTestPrivateKey(t)
 	server := botIdentityServer(t, "fallback-app", 24680)

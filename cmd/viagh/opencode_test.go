@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -16,7 +15,7 @@ func TestOpenCodeTrailerAppendedToCommit(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Git hook integration is covered separately on Windows CI")
 	}
-	gitPath := realGitPath(t)
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 	server := openCodeSessionServer(t, dir)
 	defer server.Close()
@@ -45,7 +44,7 @@ func TestOpenCodeTrailerWithoutIdentityOverride(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Git hook integration is covered separately on Windows CI")
 	}
-	gitPath := realGitPath(t)
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 	server := openCodeSessionServer(t, dir)
 	defer server.Close()
@@ -74,7 +73,7 @@ func TestOpenCodeTrailerOrderedBeforeCoauthor(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Git hook integration is covered separately on Windows CI")
 	}
-	gitPath := realGitPath(t)
+	gitPath := realGit(t)
 	dir := initializeIdentityRepository(t, gitPath)
 	server := openCodeSessionServer(t, dir)
 	defer server.Close()
@@ -109,31 +108,28 @@ func TestOpenCodeTrailerOrderedBeforeCoauthor(t *testing.T) {
 	}
 }
 
-func realGitPath(t *testing.T) string {
-	t.Helper()
-	for _, candidate := range []string{
-		"/usr/bin/git",
-		"/bin/git",
-		"/usr/local/bin/git",
-		"/opt/homebrew/bin/git",
-	} {
-		info, err := os.Stat(candidate)
-		if err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
-			return candidate
-		}
-	}
-	t.Skip("real git not found at known locations")
-	return ""
-}
-
 func openCodeSessionServer(t *testing.T, dir string) *httptest.Server {
 	t.Helper()
+	// git resolves symlinks in its top-level path while t.TempDir paths do
+	// not, so accept both representations of the repository directory.
+	expected := []string{filepath.Clean(dir)}
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		expected = append(expected, resolved)
+	}
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/session" {
 			http.NotFound(w, r)
 			return
 		}
-		if r.URL.Query().Get("directory") != filepath.Clean(dir) {
+		got := r.URL.Query().Get("directory")
+		matches := false
+		for _, candidate := range expected {
+			if got == candidate {
+				matches = true
+				break
+			}
+		}
+		if !matches {
 			http.NotFound(w, r)
 			return
 		}

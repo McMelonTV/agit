@@ -142,9 +142,20 @@ func applyGitAuthorship(cfg config.Config, backend broker.Backend, gitPath, self
 }
 
 func discoverOpenCodeTrailer(gitPath string, args, env []string) string {
-	dir, ok := wrapper.GitTopLevel(gitPath, args, env)
-	if !ok {
-		dir, _ = os.Getwd()
+	// git resolves symlinks in its top-level path (for example /var to
+	// /private/var on macOS), while opencode session directories usually keep
+	// the unresolved path. Try both so either representation matches.
+	dirs := []string{}
+	if top, ok := wrapper.GitTopLevel(gitPath, args, env); ok {
+		dirs = append(dirs, top)
 	}
-	return opencode.DiscoverTrailer(dir, opencode.DiscoverTimeout)
+	if cwd, err := os.Getwd(); err == nil && cwd != "" {
+		dirs = append(dirs, cwd)
+	}
+	for _, dir := range dirs {
+		if trailer := opencode.DiscoverTrailer(dir, opencode.DiscoverTimeout); trailer != "" {
+			return trailer
+		}
+	}
+	return ""
 }

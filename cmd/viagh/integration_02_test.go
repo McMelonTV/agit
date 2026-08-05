@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 
 	"runtime"
 	"strings"
@@ -31,10 +30,7 @@ if [ -n "$VIAGH_BROKER_URL" ] || [ -n "$VIAGH_BROKER_SECRET" ] || [ -n "$VIAGH_S
 fi
 printf 'external-env-host-ok\n'
 `)
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	t.Setenv("GH_TOKEN", "user-token")
 	stdout, stderr, code := runMainSubprocess(t, nil,
 		"--host", "github.com",
@@ -74,10 +70,7 @@ case "$3:$GH_TOKEN" in
   *) echo "unexpected nested invocation: $* token=$GH_TOKEN" >&2; exit 95 ;;
 esac
 `)
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	stdout, stderr, code := runMainSubprocess(t, nil,
 		"--app-id", "123",
 		"--private-key", keyPath,
@@ -152,10 +145,7 @@ func TestGitCredentialFailureDoesNotFallThroughToAskPass(t *testing.T) {
 		http.NotFound(w, r)
 	}))
 	defer server.Close()
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	marker := t.TempDir() + "/askpass-called"
 	askpass := writeExecutable(t, "#!/bin/sh\nprintf called >"+shellSingleQuote(marker)+"\nprintf fallback-secret\n")
 	t.Setenv("GIT_ASKPASS", askpass)

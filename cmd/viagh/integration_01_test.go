@@ -53,10 +53,7 @@ case "$3:$GH_TOKEN" in
   *) echo "unexpected invocation: $* token=$GH_TOKEN" >&2; exit 91 ;;
 esac
 `)
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	stdout, stderr, code := runMainSubprocess(t, nil,
 		"--app-id", "123",
 		"--private-key", keyPath,
@@ -92,10 +89,7 @@ func TestExecGitShimUsesCredentialBrokerWithCLIOnlyConfiguration(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	input := "protocol=https\\nhost=github.com\\npath=acme/one.git\\n\\n"
 	command := "printf '" + input + "' | git credential fill"
 	stdout, stderr, code := runMainSubprocess(t, nil,
@@ -176,10 +170,7 @@ if [ "$GH_REPO:$GH_TOKEN" != "beta/two:token-2" ]; then
 fi
 printf 'env-route-ok\n'
 `)
-	gitPath, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git unavailable")
-	}
+	gitPath := realGit(t)
 	stdout, stderr, code := runMainSubprocess(t, nil,
 		"--app-id", "123",
 		"--private-key", keyPath,

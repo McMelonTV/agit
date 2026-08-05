@@ -92,8 +92,16 @@ func TestGitTopLevel(t *testing.T) {
 	if !ok {
 		t.Fatal("GitTopLevel reported no top level")
 	}
-	if filepath.Clean(top) != filepath.Clean(dir) {
-		t.Fatalf("GitTopLevel = %q, want %q", top, dir)
+	// The returned path may differ textually from dir when symlinks or short
+	// 8.3 names are involved (for example /var vs /private/var on macOS).
+	// Verify it references the same repository through a marker file instead
+	// of comparing path strings.
+	marker := "viagh-git-toplevel-marker"
+	if err := os.WriteFile(filepath.Join(dir, marker), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(top, marker)); err != nil {
+		t.Fatalf("GitTopLevel %q does not reference the repository at %q: %v", top, dir, err)
 	}
 	if _, ok := GitTopLevel(gitPath, []string{"-C", filepath.Clean(t.TempDir()), "status"}, os.Environ()); ok {
 		t.Fatal("GitTopLevel succeeded outside a repository")
