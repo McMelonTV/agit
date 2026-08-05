@@ -22,7 +22,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat .source-update/part-* | base64 --decode > /tmp/authorship-update.tar.gz
+          cat .source-update/chunk-* | base64 --decode > /tmp/authorship-update.tar.gz
           echo '13e29f594e121809795635190f3600f4249ae982f7e1f13da261373fe46066eb  /tmp/authorship-update.tar.gz' | sha256sum -c -
           tar -xzf /tmp/authorship-update.tar.gz
           rm -rf .source-update
