@@ -22,6 +22,7 @@ var sensitiveEnvironment = []string{
 	"GHAPP_RUNTIME_TOKEN",
 	"GHAPP_RUNTIME_REPOSITORY",
 	"GHAPP_ASKPASS",
+	coauthorTrailerEnv,
 	activeTokenHashEnv,
 }
 

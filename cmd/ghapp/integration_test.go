@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -129,6 +130,10 @@ func runMainSubprocess(t *testing.T, stdin []byte, args ...string) (stdout, stde
 		"GITHUB_TOKEN=",
 		"GH_ENTERPRISE_TOKEN=",
 		"GITHUB_ENTERPRISE_TOKEN=",
+		"GHAPP_GIT_NAME=",
+		"GHAPP_GIT_EMAIL=",
+		"GHAPP_GIT_AUTHORSHIP=",
+		"GHAPP_OVERRIDE_GIT_IDENTITY=",
 	)
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
@@ -353,4 +358,260 @@ func TestGitCredentialFailureDoesNotFallThroughToAskPass(t *testing.T) {
 
 func shellSingleQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+}
+
+func TestDefaultGitAuthorshipUsesAppBotAndOverridesClientConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Git hook integration is covered separately on Windows CI")
+	}
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git unavailable")
+	}
+	dir := initializeIdentityRepository(t, gitPath)
+	keyPath := writeTestPrivateKey(t)
+	server := botIdentityServer(t, "test-app", 12345)
+	defer server.Close()
+
+	stdout, stderr, code := runMainSubprocess(t, nil,
+		"--app-id", "123",
+		"--private-key", keyPath,
+		"--api-url", server.URL,
+		"--real-git", gitPath,
+		"--no-cache",
+		"git", "-C", dir, "commit", "--allow-empty", "-m", "bot commit",
+	)
+	if code != 0 {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	identity, message := commitIdentity(t, gitPath, dir)
+	want := "test-app[bot]|12345+test-app[bot]@users.noreply.127.0.0.1|test-app[bot]|12345+test-app[bot]@users.noreply.127.0.0.1"
+	if identity != want || strings.TrimSpace(message) != "bot commit" {
+		t.Fatalf("identity=%q message=%q", identity, message)
+	}
+}
+
+func TestConfiguredGitAuthorshipOverridesClientConfigWithoutAppLookup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Git process integration is covered separately on Windows CI")
+	}
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git unavailable")
+	}
+	dir := initializeIdentityRepository(t, gitPath)
+	stdout, stderr, code := runMainSubprocess(t, nil,
+		"--git-name", "Configured Agent",
+		"--git-email", "agent@example.com",
+		"--git-authorship", "configured",
+		"--real-git", gitPath,
+		"git", "-C", dir,
+		"-c", "user.name=Command Line User",
+		"-c", "user.email=command@example.com",
+		"commit", "--allow-empty", "-m", "configured commit",
+	)
+	if code != 0 {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	identity, _ := commitIdentity(t, gitPath, dir)
+	if identity != "Configured Agent|agent@example.com|Configured Agent|agent@example.com" {
+		t.Fatalf("identity=%q", identity)
+	}
+}
+
+func TestBothGitAuthorshipAddsBotCoauthorAndPreservesExistingHook(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell hook integration is Unix-specific")
+	}
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git unavailable")
+	}
+	dir := initializeIdentityRepository(t, gitPath)
+	hookDir := t.TempDir()
+	marker := filepath.Join(hookDir, "prepare-hook-called")
+	preCommitMarker := filepath.Join(hookDir, "pre-commit-called")
+	runGitCommand(t, gitPath, dir, "config", "core.hooksPath", hookDir)
+	hook := filepath.Join(hookDir, "prepare-commit-msg")
+	contents := "#!/bin/sh\nprintf called >" + shellSingleQuote(marker) + "\n"
+	if err := os.WriteFile(hook, []byte(contents), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	preCommitHook := filepath.Join(hookDir, "pre-commit")
+	preCommitContents := "#!/bin/sh\nprintf called >" + shellSingleQuote(preCommitMarker) + "\n"
+	if err := os.WriteFile(preCommitHook, []byte(preCommitContents), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	keyPath := writeTestPrivateKey(t)
+	server := botIdentityServer(t, "test-app", 12345)
+	defer server.Close()
+
+	stdout, stderr, code := runMainSubprocess(t, nil,
+		"--app-id", "123",
+		"--private-key", keyPath,
+		"--api-url", server.URL,
+		"--git-name", "Configured Agent",
+		"--git-email", "agent@example.com",
+		"--git-authorship", "both",
+		"--real-git", gitPath,
+		"--no-cache",
+		"git", "-C", dir, "commit", "--allow-empty", "-m", "combined commit",
+	)
+	if code != 0 {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	identity, message := commitIdentity(t, gitPath, dir)
+	if identity != "Configured Agent|agent@example.com|Configured Agent|agent@example.com" {
+		t.Fatalf("identity=%q", identity)
+	}
+	trailer := "Co-authored-by: test-app[bot] <12345+test-app[bot]@users.noreply.127.0.0.1>"
+	if strings.Count(message, trailer) != 1 {
+		t.Fatalf("message=%q", message)
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatalf("existing prepare-commit-msg hook did not run: %v", err)
+	}
+	if _, err := os.Stat(preCommitMarker); err != nil {
+		t.Fatalf("existing pre-commit hook did not run: %v", err)
+	}
+}
+
+func TestIncompleteConfiguredGitIdentityFallsBackToBot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Git process integration is covered separately on Windows CI")
+	}
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git unavailable")
+	}
+	dir := initializeIdentityRepository(t, gitPath)
+	keyPath := writeTestPrivateKey(t)
+	server := botIdentityServer(t, "fallback-app", 24680)
+	defer server.Close()
+
+	stdout, stderr, code := runMainSubprocess(t, nil,
+		"--app-id", "123",
+		"--private-key", keyPath,
+		"--api-url", server.URL,
+		"--git-name", "Incomplete Agent",
+		"--git-authorship", "configured",
+		"--real-git", gitPath,
+		"--no-cache",
+		"git", "-C", dir, "commit", "--allow-empty", "-m", "fallback commit",
+	)
+	if code != 0 {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	identity, _ := commitIdentity(t, gitPath, dir)
+	want := "fallback-app[bot]|24680+fallback-app[bot]@users.noreply.127.0.0.1|fallback-app[bot]|24680+fallback-app[bot]@users.noreply.127.0.0.1"
+	if identity != want {
+		t.Fatalf("identity=%q, want %q", identity, want)
+	}
+}
+
+func TestExecGitShimUsesConfiguredAuthorship(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Git process integration is covered separately on Windows CI")
+	}
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git unavailable")
+	}
+	dir := initializeIdentityRepository(t, gitPath)
+
+	stdout, stderr, code := runMainSubprocess(t, nil,
+		"--git-name", "Nested Agent",
+		"--git-email", "nested@example.com",
+		"--git-authorship", "configured",
+		"--real-git", gitPath,
+		"exec", "--", "git", "-C", dir, "commit", "--allow-empty", "-m", "nested commit",
+	)
+	if code != 0 {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	identity, _ := commitIdentity(t, gitPath, dir)
+	if identity != "Nested Agent|nested@example.com|Nested Agent|nested@example.com" {
+		t.Fatalf("identity=%q", identity)
+	}
+}
+
+func TestDisabledGitIdentityOverridePreservesClientConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Git process integration is covered separately on Windows CI")
+	}
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git unavailable")
+	}
+	dir := initializeIdentityRepository(t, gitPath)
+	stdout, stderr, code := runMainSubprocess(t, nil,
+		"--override-git-identity=false",
+		"--git-authorship", "bot",
+		"--real-git", gitPath,
+		"git", "-C", dir, "commit", "--allow-empty", "-m", "client commit",
+	)
+	if code != 0 {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	identity, _ := commitIdentity(t, gitPath, dir)
+	if identity != "Client User|client@example.com|Client User|client@example.com" {
+		t.Fatalf("identity=%q", identity)
+	}
+}
+
+func TestReadOnlyGitCommandDoesNotResolveBotIdentity(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Git process integration is covered separately on Windows CI")
+	}
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git unavailable")
+	}
+	dir := initializeIdentityRepository(t, gitPath)
+	stdout, stderr, code := runMainSubprocess(t, nil,
+		"--app-id", "123",
+		"--private-key", filepath.Join(t.TempDir(), "missing.pem"),
+		"--real-git", gitPath,
+		"git", "-C", dir, "status", "--short",
+	)
+	if code != 0 || stdout != "" || stderr != "" {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+}
+
+func initializeIdentityRepository(t *testing.T, gitPath string) string {
+	t.Helper()
+	dir := t.TempDir()
+	runGitCommand(t, gitPath, dir, "init")
+	runGitCommand(t, gitPath, dir, "config", "user.name", "Client User")
+	runGitCommand(t, gitPath, dir, "config", "user.email", "client@example.com")
+	return dir
+}
+
+func botIdentityServer(t *testing.T, slug string, id int64) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/app":
+			_ = json.NewEncoder(w).Encode(map[string]any{"slug": slug})
+		case "/users/" + slug + "[bot]":
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "login": slug + "[bot]"})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+}
+
+func commitIdentity(t *testing.T, gitPath, dir string) (string, string) {
+	t.Helper()
+	cmd := exec.Command(gitPath, "-C", dir, "show", "-s", "--format=%an%x00%ae%x00%cn%x00%ce%x00%B", "HEAD")
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := strings.SplitN(string(output), "\x00", 5)
+	if len(parts) != 5 {
+		t.Fatalf("unexpected commit output: %q", output)
+	}
+	return strings.Join(parts[:4], "|"), parts[4]
 }

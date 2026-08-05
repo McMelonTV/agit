@@ -36,6 +36,11 @@ type Account struct {
 	Type  string `json:"type"`
 }
 
+type Identity struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
 type Token struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expires_at"`
@@ -177,6 +182,93 @@ func (c *Client) CreateInstallationToken(ctx context.Context, installationID int
 		return Token{}, errors.New("GitHub returned an incomplete installation token response")
 	}
 	return token, nil
+}
+
+func (c *Client) BotIdentity(ctx context.Context) (Identity, error) {
+	var app struct {
+		Slug string `json:"slug"`
+	}
+	if err := c.doAppRequest(ctx, http.MethodGet, "/app", nil, &app); err != nil {
+		return Identity{}, fmt.Errorf("get GitHub App identity: %w", err)
+	}
+	app.Slug = strings.TrimSpace(app.Slug)
+	if app.Slug == "" {
+		return Identity{}, errors.New("GitHub returned an App without a slug")
+	}
+
+	login := app.Slug + "[bot]"
+	var user struct {
+		ID    int64  `json:"id"`
+		Login string `json:"login"`
+	}
+	endpoint := "/users/" + url.PathEscape(login)
+	// The public user endpoint does not accept a GitHub App JWT as its
+	// authentication mechanism. Query it without credentials so GitHub.com can
+	// provide the bot account's numeric ID without minting an installation token.
+	// Private GitHub Enterprise instances may reject the anonymous request; the
+	// deterministic no-ID address below remains the compatibility fallback.
+	if err := c.doPublicRequest(ctx, http.MethodGet, endpoint, &user); err == nil {
+		if strings.TrimSpace(user.Login) != "" {
+			login = strings.TrimSpace(user.Login)
+		}
+		if user.ID > 0 {
+			return Identity{Name: login, Email: strconv.FormatInt(user.ID, 10) + "+" + login + "@" + c.noReplyDomain()}, nil
+		}
+	}
+
+	// Some GitHub Enterprise versions do not expose the App bot through the
+	// users endpoint. The legacy no-ID address still provides a stable,
+	// deterministic bot identity, although an App rename can change attribution.
+	return Identity{Name: login, Email: login + "@" + c.noReplyDomain()}, nil
+}
+
+func (c *Client) doPublicRequest(ctx context.Context, method, endpoint string, result any) error {
+	req, err := http.NewRequestWithContext(ctx, method, c.APIURL+endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("create GitHub API request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", c.UserAgent)
+	if c.APIVersion != "" {
+		req.Header.Set("X-GitHub-Api-Version", c.APIVersion)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("call GitHub API: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		limited := io.LimitReader(resp.Body, 64<<10)
+		var payload struct {
+			Message string `json:"message"`
+		}
+		_ = json.NewDecoder(limited).Decode(&payload)
+		return &APIError{StatusCode: resp.StatusCode, Message: payload.Message}
+	}
+	if result == nil || resp.StatusCode == http.StatusNoContent {
+		return nil
+	}
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		return fmt.Errorf("decode GitHub API response: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) noReplyDomain() string {
+	parsed, err := url.Parse(c.APIURL)
+	if err != nil || parsed.Hostname() == "" {
+		return "users.noreply.github.com"
+	}
+	host := strings.ToLower(parsed.Hostname())
+	switch {
+	case host == "api.github.com":
+		return "users.noreply.github.com"
+	case strings.HasPrefix(host, "api.") && strings.HasSuffix(host, ".ghe.com"):
+		return "users.noreply." + strings.TrimPrefix(host, "api.")
+	default:
+		return "users.noreply." + host
+	}
 }
 
 func (c *Client) doAppRequest(ctx context.Context, method, endpoint string, body any, result any) error {

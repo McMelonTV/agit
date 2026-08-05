@@ -35,6 +35,7 @@ type Backend interface {
 	Installations(context.Context) ([]githubapp.Installation, error)
 	Installation(context.Context, int64) (githubapp.Installation, error)
 	TokenForInstallation(context.Context, int64) (githubapp.Token, error)
+	BotIdentity(context.Context) (githubapp.Identity, error)
 }
 
 type Server struct {
@@ -155,6 +156,18 @@ func Start(backend Backend) (*Server, error) {
 		}
 		writeJSON(w, token)
 	}))
+	mux.HandleFunc("/bot-identity", s.authorize(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		identity, err := backend.BotIdentity(r.Context())
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err)
+			return
+		}
+		writeJSON(w, identity)
+	}))
 
 	s.server = &http.Server{
 		Handler:           mux,
@@ -232,6 +245,12 @@ func (c Client) Installation(ctx context.Context, id int64) (githubapp.Installat
 func (c Client) TokenForInstallation(ctx context.Context, id int64) (githubapp.Token, error) {
 	var result githubapp.Token
 	err := c.do(ctx, http.MethodPost, "/installation-token", installationRequest{ID: id}, &result)
+	return result, err
+}
+
+func (c Client) BotIdentity(ctx context.Context) (githubapp.Identity, error) {
+	var result githubapp.Identity
+	err := c.do(ctx, http.MethodGet, "/bot-identity", nil, &result)
 	return result, err
 }
 

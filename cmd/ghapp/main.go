@@ -39,6 +39,9 @@ func run(argv []string) int {
 			return 0
 		}
 	}
+	if len(argv) >= 2 && argv[1] == "commit-message-hook" {
+		return runCommitMessageHook(argv[2:])
+	}
 	if tool, ok := shimTool(argv[0]); ok && os.Getenv("GHAPP_PASSTHROUGH") == "1" {
 		return runPassthroughTool(tool, argv[1:])
 	}
@@ -217,6 +220,11 @@ func runTool(cfg config.Config, tool string, args []string) int {
 		if err != nil {
 			return fail(err)
 		}
+		args, env, identityCleanup, identityErr := applyGitAuthorship(cfg, session.backend, path, self, args, env)
+		if identityErr != nil {
+			return fail(identityErr)
+		}
+		defer identityCleanup()
 		return wrapper.Run(path, args, env)
 	}
 
@@ -387,6 +395,11 @@ func runInstallations(cfg config.Config) int {
 func runDoctor(cfg config.Config) int {
 	fmt.Printf("host: %s\n", cfg.Host)
 	fmt.Printf("api: %s\n", cfg.APIURL)
+	fmt.Printf("git identity override: %t\n", cfg.OverrideGitIdentity)
+	fmt.Printf("git authorship: %s\n", cfg.GitAuthorship)
+	if cfg.GitName != "" || cfg.GitEmail != "" {
+		fmt.Printf("configured Git identity: %s <%s>\n", cfg.GitName, cfg.GitEmail)
+	}
 	if path, err := wrapper.FindRealBinary("git", cfg.RealGit); err == nil {
 		fmt.Printf("git: %s\n", path)
 	} else {
@@ -472,6 +485,7 @@ func rawTopLevelCommand(args []string) (int, bool) {
 		"--owner": true, "--repository": true, "--host": true, "--api-url": true,
 		"--api-version": true, "--cache-dir": true, "--refresh-before": true,
 		"--http-timeout": true, "--real-gh": true, "--real-git": true,
+		"--git-name": true, "--git-email": true, "--git-authorship": true,
 	}
 	for index := 0; index < len(args); index++ {
 		arg := args[index]
@@ -489,7 +503,7 @@ func rawTopLevelCommand(args []string) (int, bool) {
 				}
 				continue
 			}
-			if name == "--no-cache" {
+			if name == "--no-cache" || name == "--override-git-identity" {
 				continue
 			}
 		}
@@ -558,5 +572,10 @@ Useful variables:
   GHAPP_PRIVATE_KEY_PEM    Inline private key PEM
   GHAPP_PRIVATE_KEY_BASE64 Base64-encoded private key PEM
   GHAPP_NO_CACHE           Disable the on-disk token cache
+  GHAPP_GIT_AUTHORSHIP     bot (default), configured, or both
+  GHAPP_GIT_NAME           Name for configured or both authorship
+  GHAPP_GIT_EMAIL          Email for configured or both authorship
+  GHAPP_OVERRIDE_GIT_IDENTITY
+                           Set false to preserve existing Git identity config
 `)
 }

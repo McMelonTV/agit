@@ -16,6 +16,9 @@
 - Recognize GitHub SSH-over-port-443 remotes and richer current-repository remote selection.
 - Add Windows path lookup fixes and cross-platform CI/release builds using supported Go toolchains.
 - Remove generated binaries from source control.
+- Add configurable Git authorship modes for App bot, configured identity, or configured author plus App bot co-author.
+- Default commit identity to the App bot, fall back to it when configured name or email is empty, and allow identity overriding to be explicitly disabled.
+- Preserve existing Git hooks while injecting bot co-author trailers for commit-producing workflows.
 
 ## 0.2.0
 

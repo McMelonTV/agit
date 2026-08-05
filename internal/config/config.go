@@ -19,26 +19,34 @@ import (
 const (
 	defaultAPIVersion = "2026-03-10"
 	SessionConfigEnv  = "GHAPP_SESSION_CONFIG"
+
+	GitAuthorshipBot        = "bot"
+	GitAuthorshipConfigured = "configured"
+	GitAuthorshipBoth       = "both"
 )
 
 type Config struct {
-	AppID             string        `json:"app_id,omitempty"`
-	PrivateKeyPath    string        `json:"private_key_path,omitempty"`
-	PrivateKeyPEM     string        `json:"private_key_pem,omitempty"`
-	PrivateKeyBase64  string        `json:"-"`
-	InstallationID    int64         `json:"installation_id,omitempty"`
-	Owner             string        `json:"owner,omitempty"`
-	Repository        string        `json:"repository,omitempty"`
-	Host              string        `json:"host"`
-	APIURL            string        `json:"api_url"`
-	APIVersion        string        `json:"api_version,omitempty"`
-	CacheDir          string        `json:"cache_dir,omitempty"`
-	NoCache           bool          `json:"no_cache,omitempty"`
-	RefreshBefore     time.Duration `json:"refresh_before"`
-	HTTPTimeout       time.Duration `json:"http_timeout"`
-	RealGH            string        `json:"real_gh,omitempty"`
-	RealGit           string        `json:"real_git,omitempty"`
-	SessionRestricted bool          `json:"session_restricted,omitempty"`
+	AppID               string        `json:"app_id,omitempty"`
+	PrivateKeyPath      string        `json:"private_key_path,omitempty"`
+	PrivateKeyPEM       string        `json:"private_key_pem,omitempty"`
+	PrivateKeyBase64    string        `json:"-"`
+	InstallationID      int64         `json:"installation_id,omitempty"`
+	Owner               string        `json:"owner,omitempty"`
+	Repository          string        `json:"repository,omitempty"`
+	Host                string        `json:"host"`
+	APIURL              string        `json:"api_url"`
+	APIVersion          string        `json:"api_version,omitempty"`
+	CacheDir            string        `json:"cache_dir,omitempty"`
+	NoCache             bool          `json:"no_cache,omitempty"`
+	RefreshBefore       time.Duration `json:"refresh_before"`
+	HTTPTimeout         time.Duration `json:"http_timeout"`
+	RealGH              string        `json:"real_gh,omitempty"`
+	RealGit             string        `json:"real_git,omitempty"`
+	GitName             string        `json:"git_name,omitempty"`
+	GitEmail            string        `json:"git_email,omitempty"`
+	GitAuthorship       string        `json:"git_authorship"`
+	OverrideGitIdentity bool          `json:"override_git_identity"`
+	SessionRestricted   bool          `json:"session_restricted,omitempty"`
 }
 
 func FromEnv() (Config, error) {
@@ -51,20 +59,31 @@ func FromEnv() (Config, error) {
 	}
 
 	cfg := Config{
-		AppID:          firstNonEmpty(os.Getenv("GHAPP_APP_ID"), os.Getenv("GITHUB_APP_ID")),
-		PrivateKeyPath: os.Getenv("GHAPP_PRIVATE_KEY"),
-		PrivateKeyPEM:  os.Getenv("GHAPP_PRIVATE_KEY_PEM"),
-		Owner:          os.Getenv("GHAPP_OWNER"),
-		Repository:     firstNonEmpty(os.Getenv("GHAPP_REPOSITORY"), os.Getenv("GH_REPO")),
-		Host:           firstNonEmpty(os.Getenv("GHAPP_HOST"), os.Getenv("GH_HOST"), "github.com"),
-		APIURL:         os.Getenv("GHAPP_API_URL"),
-		APIVersion:     firstNonEmpty(os.Getenv("GHAPP_API_VERSION"), defaultAPIVersion),
-		CacheDir:       os.Getenv("GHAPP_CACHE_DIR"),
-		NoCache:        envBool("GHAPP_NO_CACHE"),
-		RefreshBefore:  5 * time.Minute,
-		HTTPTimeout:    30 * time.Second,
-		RealGH:         os.Getenv("GHAPP_REAL_GH"),
-		RealGit:        os.Getenv("GHAPP_REAL_GIT"),
+		AppID:               firstNonEmpty(os.Getenv("GHAPP_APP_ID"), os.Getenv("GITHUB_APP_ID")),
+		PrivateKeyPath:      os.Getenv("GHAPP_PRIVATE_KEY"),
+		PrivateKeyPEM:       os.Getenv("GHAPP_PRIVATE_KEY_PEM"),
+		Owner:               os.Getenv("GHAPP_OWNER"),
+		Repository:          firstNonEmpty(os.Getenv("GHAPP_REPOSITORY"), os.Getenv("GH_REPO")),
+		Host:                firstNonEmpty(os.Getenv("GHAPP_HOST"), os.Getenv("GH_HOST"), "github.com"),
+		APIURL:              os.Getenv("GHAPP_API_URL"),
+		APIVersion:          firstNonEmpty(os.Getenv("GHAPP_API_VERSION"), defaultAPIVersion),
+		CacheDir:            os.Getenv("GHAPP_CACHE_DIR"),
+		NoCache:             envBool("GHAPP_NO_CACHE"),
+		RefreshBefore:       5 * time.Minute,
+		HTTPTimeout:         30 * time.Second,
+		RealGH:              os.Getenv("GHAPP_REAL_GH"),
+		RealGit:             os.Getenv("GHAPP_REAL_GIT"),
+		GitName:             os.Getenv("GHAPP_GIT_NAME"),
+		GitEmail:            os.Getenv("GHAPP_GIT_EMAIL"),
+		GitAuthorship:       firstNonEmpty(os.Getenv("GHAPP_GIT_AUTHORSHIP"), GitAuthorshipBot),
+		OverrideGitIdentity: true,
+	}
+	if value, ok := os.LookupEnv("GHAPP_OVERRIDE_GIT_IDENTITY"); ok && strings.TrimSpace(value) != "" {
+		enabled, err := parseBool(value)
+		if err != nil {
+			return Config{}, fmt.Errorf("GHAPP_OVERRIDE_GIT_IDENTITY: %w", err)
+		}
+		cfg.OverrideGitIdentity = enabled
 	}
 
 	if value := os.Getenv("GITHUB_APP_PRIVATE_KEY"); cfg.PrivateKeyPath == "" && cfg.PrivateKeyPEM == "" && value != "" {
@@ -127,6 +146,10 @@ func Parse(args []string) (Config, []string, error) {
 	fs.DurationVar(&cfg.HTTPTimeout, "http-timeout", cfg.HTTPTimeout, "GitHub API request timeout")
 	fs.StringVar(&cfg.RealGH, "real-gh", cfg.RealGH, "path to the underlying gh executable")
 	fs.StringVar(&cfg.RealGit, "real-git", cfg.RealGit, "path to the underlying Git executable")
+	fs.StringVar(&cfg.GitName, "git-name", cfg.GitName, "Git author name used for configured or both authorship")
+	fs.StringVar(&cfg.GitEmail, "git-email", cfg.GitEmail, "Git author email used for configured or both authorship")
+	fs.StringVar(&cfg.GitAuthorship, "git-authorship", cfg.GitAuthorship, "Git authorship mode: bot, configured, or both")
+	fs.BoolVar(&cfg.OverrideGitIdentity, "override-git-identity", cfg.OverrideGitIdentity, "override inherited Git author and committer identity")
 
 	if err := fs.Parse(args); err != nil {
 		return Config{}, nil, err
@@ -172,6 +195,18 @@ func validateRestrictedOverrides(base, current Config) error {
 	if current.HTTPTimeout != base.HTTPTimeout {
 		changed = append(changed, "--http-timeout")
 	}
+	if current.GitName != base.GitName {
+		changed = append(changed, "--git-name")
+	}
+	if current.GitEmail != base.GitEmail {
+		changed = append(changed, "--git-email")
+	}
+	if current.GitAuthorship != base.GitAuthorship {
+		changed = append(changed, "--git-authorship")
+	}
+	if current.OverrideGitIdentity != base.OverrideGitIdentity {
+		changed = append(changed, "--override-git-identity")
+	}
 	if len(changed) > 0 {
 		return fmt.Errorf("cannot override %s inside an active ghapp credential session; start a new top-level ghapp process instead", strings.Join(changed, ", "))
 	}
@@ -207,6 +242,32 @@ func normalize(cfg Config) (Config, error) {
 	cfg.AppID = strings.TrimSpace(cfg.AppID)
 	cfg.Owner = strings.TrimSpace(cfg.Owner)
 	cfg.Repository = strings.TrimSpace(cfg.Repository)
+	cfg.GitName = strings.TrimSpace(cfg.GitName)
+	cfg.GitEmail = strings.TrimSpace(cfg.GitEmail)
+	cfg.GitAuthorship = strings.ToLower(strings.TrimSpace(cfg.GitAuthorship))
+	if cfg.GitAuthorship == "" {
+		cfg.GitAuthorship = GitAuthorshipBot
+	}
+	switch cfg.GitAuthorship {
+	case GitAuthorshipBot, GitAuthorshipConfigured, GitAuthorshipBoth:
+	default:
+		return Config{}, fmt.Errorf("git-authorship must be one of %q, %q, or %q", GitAuthorshipBot, GitAuthorshipConfigured, GitAuthorshipBoth)
+	}
+	if strings.ContainsAny(cfg.GitName, "\x00\r\n") {
+		return Config{}, errors.New("git-name must not contain NUL or line breaks")
+	}
+	if strings.ContainsAny(cfg.GitName, "<>") {
+		return Config{}, errors.New("git-name must not contain angle brackets")
+	}
+	if strings.ContainsAny(cfg.GitEmail, "\x00\r\n") {
+		return Config{}, errors.New("git-email must not contain NUL or line breaks")
+	}
+	if strings.ContainsAny(cfg.GitEmail, "<> \t") {
+		return Config{}, errors.New("git-email must not contain whitespace or angle brackets")
+	}
+	if (cfg.GitAuthorship == GitAuthorshipConfigured || cfg.GitAuthorship == GitAuthorshipBoth) && (cfg.GitName == "" || cfg.GitEmail == "") {
+		cfg.GitAuthorship = GitAuthorshipBot
+	}
 	cfg.Host = normalizeHost(cfg.Host)
 	if err := validateHost(cfg.Host); err != nil {
 		return Config{}, err
@@ -355,5 +416,16 @@ func envBool(name string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func parseBool(value string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "yes", "on":
+		return true, nil
+	case "0", "false", "no", "off":
+		return false, nil
+	default:
+		return false, errors.New("must be a boolean value")
 	}
 }

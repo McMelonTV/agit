@@ -18,10 +18,13 @@ import (
 )
 
 type localBackend struct {
-	cfg    config.Config
-	once   sync.Once
-	client *githubapp.Client
-	err    error
+	cfg         config.Config
+	once        sync.Once
+	client      *githubapp.Client
+	err         error
+	identityMu  sync.Mutex
+	identity    githubapp.Identity
+	identitySet bool
 }
 
 func (b *localBackend) appClient() (*githubapp.Client, error) {
@@ -99,6 +102,27 @@ func (b *localBackend) TokenForInstallation(ctx context.Context, id int64) (gith
 	defer cancel()
 	cache := githubapp.TokenCache{Dir: b.cfg.CacheDir, Disabled: b.cfg.NoCache}
 	return client.CachedInstallationToken(ctx, id, cache, b.cfg.RefreshBefore)
+}
+
+func (b *localBackend) BotIdentity(ctx context.Context) (githubapp.Identity, error) {
+	b.identityMu.Lock()
+	defer b.identityMu.Unlock()
+	if b.identitySet {
+		return b.identity, nil
+	}
+	client, err := b.appClient()
+	if err != nil {
+		return githubapp.Identity{}, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, b.cfg.HTTPTimeout)
+	defer cancel()
+	identity, err := client.BotIdentity(ctx)
+	if err != nil {
+		return githubapp.Identity{}, err
+	}
+	b.identity = identity
+	b.identitySet = true
+	return b.identity, nil
 }
 
 type authSession struct {

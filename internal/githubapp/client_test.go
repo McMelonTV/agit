@@ -205,3 +205,76 @@ func TestClientRejectsCrossOriginRedirect(t *testing.T) {
 		t.Fatalf("redirect target was called %d times", calls)
 	}
 }
+
+func TestBotIdentityUsesAppBotAccount(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/app":
+			if r.Header.Get("Authorization") == "" {
+				t.Fatal("App request did not include JWT authorization")
+			}
+			_, _ = w.Write([]byte(`{"slug":"octo-agent"}`))
+		case "/users/octo-agent[bot]":
+			if r.Header.Get("Authorization") != "" {
+				t.Fatalf("public bot lookup unexpectedly included authorization: %q", r.Header.Get("Authorization"))
+			}
+			_, _ = w.Write([]byte(`{"id":12345,"login":"octo-agent[bot]"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := NewClient("123", key, server.URL, "2026-03-10", server.Client())
+	identity, err := client.BotIdentity(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity.Name != "octo-agent[bot]" || identity.Email != "12345+octo-agent[bot]@users.noreply.127.0.0.1" {
+		t.Fatalf("unexpected identity: %+v", identity)
+	}
+}
+
+func TestBotIdentityFallsBackWhenBotUserIsUnavailable(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/app":
+			_, _ = w.Write([]byte(`{"slug":"octo-agent"}`))
+		case "/users/octo-agent[bot]":
+			http.NotFound(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := NewClient("123", key, server.URL, "2026-03-10", server.Client())
+	identity, err := client.BotIdentity(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity.Name != "octo-agent[bot]" || identity.Email != "octo-agent[bot]@users.noreply.127.0.0.1" {
+		t.Fatalf("unexpected fallback identity: %+v", identity)
+	}
+}
+
+func TestNoReplyDomain(t *testing.T) {
+	tests := map[string]string{
+		"https://api.github.com":            "users.noreply.github.com",
+		"https://api.acme.ghe.com":          "users.noreply.acme.ghe.com",
+		"https://github.example.com/api/v3": "users.noreply.github.example.com",
+		"http://127.0.0.1:1234":             "users.noreply.127.0.0.1",
+	}
+	for apiURL, want := range tests {
+		client := &Client{APIURL: apiURL}
+		if got := client.noReplyDomain(); got != want {
+			t.Fatalf("noReplyDomain(%q) = %q, want %q", apiURL, got, want)
+		}
+	}
+}

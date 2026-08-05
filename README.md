@@ -13,6 +13,7 @@ It is intended for CI workers, service accounts, build hosts, and local automati
 - Nested commands can switch installations through a process-scoped credential broker.
 - App private-key material is not inherited by `gh`, Git hooks, extensions, or commands launched through `ghapp exec`.
 - Commands for a different GitHub host retain their existing user authentication and credential helpers.
+- Commit authorship defaults to the GitHub App bot and can instead use a configured identity or add the bot as a co-author.
 
 A GitHub App token is not a user token. The App's installation scope and permissions still determine which repositories and APIs are available, and activity is attributed to the App.
 
@@ -73,6 +74,42 @@ export GHAPP_API_URL=https://github.example.com/api/v3
 ```
 
 `GHAPP_API_URL` must be an absolute HTTPS URL. Plain HTTP is accepted only for loopback addresses, which is useful for tests.
+
+### Git authorship
+
+Wrapped commit-producing Git commands override repository, global, environment, and command-scope `user.name`/`user.email` configuration by default.
+
+The default mode is App bot authorship. The configured name and email default to empty:
+
+```sh
+export GHAPP_GIT_AUTHORSHIP=bot
+```
+
+Available modes are:
+
+| Mode | Result |
+| --- | --- |
+| `bot` | The GitHub App bot is the author and committer. This is the default. |
+| `configured` | `GHAPP_GIT_NAME` and `GHAPP_GIT_EMAIL` are the author and committer. |
+| `both` | The configured identity is the author and committer, and the App bot is added with a `Co-authored-by` trailer. |
+
+For example:
+
+```sh
+export GHAPP_GIT_NAME='Release Agent'
+export GHAPP_GIT_EMAIL='release-agent@example.com'
+export GHAPP_GIT_AUTHORSHIP=both
+```
+
+If either configured identity field is empty, `configured` and `both` fall back to `bot`. Existing Git identity configuration can be preserved explicitly:
+
+```sh
+export GHAPP_OVERRIDE_GIT_IDENTITY=false
+# or
+ghapp --override-git-identity=false git commit -m 'Use client identity'
+```
+
+The bot login is derived from the authenticated App. `ghapp` uses the bot account's numeric GitHub no-reply address when available and a deterministic no-ID bot address as a compatibility fallback. In `both` mode, existing Git hooks continue to run and an identical bot co-author trailer is not added twice.
 
 ## Explicit wrapper mode
 
@@ -216,6 +253,10 @@ A command targeting a host other than `GHAPP_HOST` is passed to the real `gh` wi
 | `GHAPP_HTTP_TIMEOUT` | API and broker timeout, such as `30s`. |
 | `GHAPP_REAL_GH` | Underlying `gh` executable or name. |
 | `GHAPP_REAL_GIT` | Underlying Git executable or name. |
+| `GHAPP_GIT_NAME` | Name for `configured` or `both` Git authorship; defaults to empty. |
+| `GHAPP_GIT_EMAIL` | Email for `configured` or `both` Git authorship; defaults to empty. |
+| `GHAPP_GIT_AUTHORSHIP` | `bot`, `configured`, or `both`; defaults to `bot`. |
+| `GHAPP_OVERRIDE_GIT_IDENTITY` | Override existing Git identity when true; defaults to true. Set false to preserve client configuration. |
 
 Equivalent global flags are accepted before the `ghapp` subcommand. Run `ghapp help` for the concise reference.
 
@@ -233,7 +274,7 @@ The cache uses an inter-process lock to prevent parallel token minting. Corrupt,
 - Descendants of `ghapp exec`, Git hooks, and extensions inherit the broker capability so they can perform transparent nested operations. Treat arbitrary wrapped commands as trusted for the lifetime of that invocation.
 - Cached installation tokens remain sensitive until expiry.
 - The wrapper cannot exceed App permissions, repository selection, organization policy, or endpoint support for installation tokens.
-- Git commit author and committer identity are not changed by authentication.
+- Git author and committer identity are overridden for commit-producing commands unless `GHAPP_OVERRIDE_GIT_IDENTITY=false` is set.
 
 Use operating-system process isolation, a secret manager, least-privilege App permissions, repository selection, and private-key rotation appropriate to the deployment.
 

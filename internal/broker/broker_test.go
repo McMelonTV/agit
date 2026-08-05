@@ -40,6 +40,11 @@ func (b *testBackend) TokenForInstallation(context.Context, int64) (githubapp.To
 	return githubapp.Token{Token: "token-7", ExpiresAt: time.Now().Add(time.Hour)}, nil
 }
 
+func (b *testBackend) BotIdentity(context.Context) (githubapp.Identity, error) {
+	b.calls.Add(1)
+	return githubapp.Identity{Name: "test-app[bot]", Email: "1+test-app[bot]@users.noreply.github.com"}, nil
+}
+
 func TestBrokerClientRoundTrip(t *testing.T) {
 	backend := &testBackend{}
 	server, err := Start(backend)
@@ -54,6 +59,13 @@ func TestBrokerClientRoundTrip(t *testing.T) {
 	}
 	if token.Token != "token-acme" || installation.Account.Login != "acme" {
 		t.Fatalf("unexpected response: %+v %+v", token, installation)
+	}
+	identity, err := client.BotIdentity(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity.Name != "test-app[bot]" || identity.Email == "" {
+		t.Fatalf("unexpected bot identity: %+v", identity)
 	}
 }
 

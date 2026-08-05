@@ -48,6 +48,10 @@ func (b *recordingBackend) TokenForInstallation(_ context.Context, id int64) (gi
 	return githubapp.Token{Token: "token-by-id", ExpiresAt: time.Unix(2_000_000_000, 0)}, nil
 }
 
+func (b *recordingBackend) BotIdentity(context.Context) (githubapp.Identity, error) {
+	return githubapp.Identity{Name: "test-app[bot]", Email: "1+test-app[bot]@users.noreply.github.com"}, nil
+}
+
 func TestCredentialHelperRejectsUnrelatedHost(t *testing.T) {
 	backend := &recordingBackend{}
 	server, err := broker.Start(backend)
