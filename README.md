@@ -169,12 +169,15 @@ Other utility commands:
 
 ```sh
 viagh token
+viagh env VIAGH_APP_ID
 viagh installations
 viagh doctor
 viagh version
 ```
 
 `viagh token` prints a token and should be used only where exposing a token through an environment variable is acceptable.
+
+`viagh env KEY` prints the value of a variable and where it came from, `env` (process environment) or `env_file` (the environment file). It exits nonzero when the variable is not set:
 
 ## Transparent shim mode
 

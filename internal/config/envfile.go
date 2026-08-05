@@ -16,6 +16,16 @@ const (
 	configFileDirName = "viagh"
 )
 
+// Env source labels reported by LookupEnvSource.
+const (
+	EnvSourceProcess = "env"
+	EnvSourceFile    = "env_file"
+)
+
+// envFileKeys records variables applied from the environment file so callers
+// can distinguish their origin from the process environment.
+var envFileKeys = make(map[string]bool)
+
 // LoadEnvFile applies variables from the viagh environment file to the
 // process environment. An explicit VIAGH_CONFIG_FILE path takes precedence;
 // otherwise $XDG_CONFIG_HOME/viagh/viagh.env is used on Unix and
@@ -25,6 +35,7 @@ const (
 // the file, and empty values are ignored. Values are literal: no shell
 // expansion, command substitution, or variable interpolation is performed.
 func LoadEnvFile() error {
+	envFileKeys = make(map[string]bool)
 	path, err := EnvFilePath()
 	if err != nil || path == "" {
 		return nil
@@ -63,11 +74,27 @@ func LoadEnvFile() error {
 			continue
 		}
 		_ = os.Setenv(key, value)
+		envFileKeys[key] = true
 	}
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
 	return nil
+}
+
+// LookupEnvSource returns the value of an environment variable and the
+// source that set it: EnvSourceProcess ("env") for the process environment or
+// EnvSourceFile ("env_file") when LoadEnvFile applied it from the environment
+// file. ok is false when the variable is not set.
+func LookupEnvSource(key string) (value, source string, ok bool) {
+	value, ok = os.LookupEnv(key)
+	if !ok {
+		return "", "", false
+	}
+	if envFileKeys[key] {
+		return value, EnvSourceFile, true
+	}
+	return value, EnvSourceProcess, true
 }
 
 // EnvFilePath returns the path of the viagh environment file, or "" when no

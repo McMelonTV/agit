@@ -113,6 +113,8 @@ func run(argv []string) int {
 		return runExec(cfg, commandArgs)
 	case "token":
 		return runToken(cfg)
+	case "env":
+		return runEnv(cfg, commandArgs)
 	case "installations":
 		return runInstallations(cfg)
 	case "doctor":

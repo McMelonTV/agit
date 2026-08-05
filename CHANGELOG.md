@@ -24,6 +24,7 @@
 - Report the GitHub App bot through `gh auth status --json hosts` for T3 Code and other GitHub CLI discovery clients without selecting an installation.
 - Package release binaries in executable-preserving archives for Linux, macOS, and Windows on amd64 and arm64.
 - Set Go 1.25 as the supported source-build baseline and reduce the CI matrix while retaining cross-platform and old-stable coverage.
+- Add a `viagh env KEY` command that prints a variable's value and origin (`env` or `env_file`).
 
 ## 0.2.0
 

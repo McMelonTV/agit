@@ -160,3 +160,73 @@ func TestLoadEnvFileOverridePath(t *testing.T) {
 		t.Fatalf("VIAGH_OWNER = %q, want beta", got)
 	}
 }
+
+func TestLookupEnvSourceProcessEnvironment(t *testing.T) {
+	writeEnvFile(t, "export VIAGH_APP_ID=4242\n")
+	t.Setenv("VIAGH_OWNER", "acme")
+	unsetEnvForTest(t, "VIAGH_APP_ID")
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("LoadEnvFile() error: %v", err)
+	}
+	value, source, ok := LookupEnvSource("VIAGH_OWNER")
+	if !ok || value != "acme" || source != EnvSourceProcess {
+		t.Fatalf("LookupEnvSource(VIAGH_OWNER) = %q, %q, %v; want acme, env, true", value, source, ok)
+	}
+}
+
+func TestLookupEnvSourceEnvFile(t *testing.T) {
+	writeEnvFile(t, "export VIAGH_APP_ID=4242\n")
+	unsetEnvForTest(t, "VIAGH_APP_ID")
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("LoadEnvFile() error: %v", err)
+	}
+	value, source, ok := LookupEnvSource("VIAGH_APP_ID")
+	if !ok || value != "4242" || source != EnvSourceFile {
+		t.Fatalf("LookupEnvSource(VIAGH_APP_ID) = %q, %q, %v; want 4242, env_file, true", value, source, ok)
+	}
+}
+
+func TestLookupEnvSourceExistingEnvironmentWins(t *testing.T) {
+	writeEnvFile(t, "export VIAGH_APP_ID=4242\n")
+	t.Setenv("VIAGH_APP_ID", "99")
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("LoadEnvFile() error: %v", err)
+	}
+	value, source, ok := LookupEnvSource("VIAGH_APP_ID")
+	if !ok || value != "99" || source != EnvSourceProcess {
+		t.Fatalf("LookupEnvSource(VIAGH_APP_ID) = %q, %q, %v; want 99, env, true", value, source, ok)
+	}
+}
+
+func TestLookupEnvSourceNotSet(t *testing.T) {
+	writeEnvFile(t, "export VIAGH_APP_ID=4242\n")
+	unsetEnvForTest(t, "VIAGH_APP_ID")
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("LoadEnvFile() error: %v", err)
+	}
+	if _, _, ok := LookupEnvSource("VIAGH_UNRELATED"); ok {
+		t.Fatal("LookupEnvSource(VIAGH_UNRELATED) reported a variable that is not set")
+	}
+}
+
+func TestLookupEnvSourceReappliesFileAfterReload(t *testing.T) {
+	path := writeEnvFile(t, "export VIAGH_APP_ID=4242\n")
+	unsetEnvForTest(t, "VIAGH_APP_ID")
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("LoadEnvFile() error: %v", err)
+	}
+	if _, source, _ := LookupEnvSource("VIAGH_APP_ID"); source != EnvSourceFile {
+		t.Fatalf("first load source = %q, want env_file", source)
+	}
+	if err := os.WriteFile(path, []byte("export VIAGH_APP_ID=7777\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Unsetenv("VIAGH_APP_ID")
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("second LoadEnvFile() error: %v", err)
+	}
+	value, source, ok := LookupEnvSource("VIAGH_APP_ID")
+	if !ok || value != "7777" || source != EnvSourceFile {
+		t.Fatalf("LookupEnvSource(VIAGH_APP_ID) = %q, %q, %v; want 7777, env_file, true", value, source, ok)
+	}
+}

@@ -12,6 +12,7 @@ Usage:
   viagh [global flags] git [args...]
   viagh [global flags] exec -- command [args...]
   viagh [global flags] token
+  viagh [global flags] env KEY
   viagh [global flags] installations
   viagh [global flags] doctor
 
