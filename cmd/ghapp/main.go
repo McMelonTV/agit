@@ -68,6 +68,9 @@ func run(argv []string) int {
 		if err != nil {
 			return fail(err)
 		}
+		if err := validateRepoCreateOwner(cfg, tool, argv[1:]); err != nil {
+			return fail(err)
+		}
 		return runTool(cfg, tool, argv[1:])
 	}
 
@@ -96,6 +99,9 @@ func run(argv []string) int {
 	}
 
 	command, commandArgs := args[0], args[1:]
+	if err := validateRepoCreateOwner(cfg, command, commandArgs); err != nil {
+		return fail(err)
+	}
 	switch command {
 	case "help", "--help", "-h":
 		printUsage()
