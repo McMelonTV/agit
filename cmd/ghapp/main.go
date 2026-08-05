@@ -61,7 +61,7 @@ func run(argv []string) int {
 	}
 
 	if tool, ok := shimTool(argv[0]); ok {
-		if tool == "gh" && !ghcmd.NeedsAuthentication(argv[1:]) {
+		if tool == "gh" && !ghcmd.IsAuthStatusJSONHosts(argv[1:]) && !ghcmd.NeedsAuthentication(argv[1:]) {
 			return runGHUnauthenticated(os.Getenv("GHAPP_REAL_GH"), argv[1:])
 		}
 		cfg, err := config.FromEnv()
@@ -76,7 +76,7 @@ func run(argv []string) int {
 
 	if commandIndex, ok := rawTopLevelCommand(argv[1:]); ok && argv[1+commandIndex] == "gh" {
 		ghArgs := argv[2+commandIndex:]
-		if !ghcmd.NeedsAuthentication(ghArgs) {
+		if !ghcmd.IsAuthStatusJSONHosts(ghArgs) && !ghcmd.NeedsAuthentication(ghArgs) {
 			configured := os.Getenv("GHAPP_REAL_GH")
 			if value, found := rawGlobalFlagValue(argv[1:1+commandIndex], "--real-gh"); found {
 				configured = value
@@ -130,7 +130,7 @@ func run(argv []string) int {
 }
 
 func runTool(cfg config.Config, tool string, args []string) int {
-	if tool == "gh" && !ghcmd.NeedsAuthentication(args) {
+	if tool == "gh" && !ghcmd.IsAuthStatusJSONHosts(args) && !ghcmd.NeedsAuthentication(args) {
 		return runGHUnauthenticated(cfg.RealGH, args)
 	}
 
@@ -143,6 +143,16 @@ func runTool(cfg config.Config, tool string, args []string) int {
 		return fail(fmt.Errorf("locate ghapp executable: %w", err))
 	}
 	self = wrapper.CleanExecutablePath(self)
+	if tool == "gh" && ghcmd.IsAuthStatusJSONHosts(args) {
+		host := cfg.Host
+		if requestedHost, ok := ghcmd.AuthStatusHostname(args); ok {
+			if !repository.HostMatches(requestedHost, cfg.Host) {
+				return runGHUnauthenticatedWithRepository(path, args, "")
+			}
+			host = requestedHost
+		}
+		return runGitHubAppAuthStatus(cfg, host)
+	}
 
 	realGit := ""
 	if tool == "git" {
