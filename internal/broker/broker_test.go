@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/McMelonTV/agit/internal/githubapp"
-	"github.com/McMelonTV/agit/internal/repository"
+	"github.com/McMelonTV/viagh/internal/githubapp"
+	"github.com/McMelonTV/viagh/internal/repository"
 )
 
 type testBackend struct {

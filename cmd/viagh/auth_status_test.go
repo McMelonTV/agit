@@ -45,11 +45,11 @@ func TestT3CodeAuthProbeReportsAppBotWithoutSelectingInstallation(t *testing.T) 
 
 	// If the compatibility path accidentally invokes the underlying gh binary,
 	// the test process exits 99 through TestMain.
-	t.Setenv("GHAPP_TEST_FAKE_GH", "1")
+	t.Setenv("VIAGH_TEST_FAKE_GH", "1")
 	fakeGH := writeFakeGHCopy(t)
 	stdout, stderr, code := captureProcessOutput(t, func() int {
 		return run([]string{
-			"ghapp",
+			"viagh",
 			"--app-id", "123",
 			"--private-key", keyPath,
 			"--api-url", server.URL,
@@ -74,7 +74,7 @@ func TestT3CodeAuthProbeReportsAppBotWithoutSelectingInstallation(t *testing.T) 
 	if entry.State != "success" || !entry.Active || entry.Host != "github.com" || entry.Login != "test-app[bot]" {
 		t.Fatalf("unexpected T3 Code auth entry: %#v", entry)
 	}
-	if entry.TokenSource != "ghapp" || entry.GitProtocol != "https" || entry.Error != "" {
+	if entry.TokenSource != "viagh" || entry.GitProtocol != "https" || entry.Error != "" {
 		t.Fatalf("unexpected compatibility fields: %#v", entry)
 	}
 
@@ -98,11 +98,11 @@ func TestT3CodeAuthProbeReturnsParseableErrorWithZeroExitCode(t *testing.T) {
 	}))
 	defer server.Close()
 
-	t.Setenv("GHAPP_TEST_FAKE_GH", "1")
+	t.Setenv("VIAGH_TEST_FAKE_GH", "1")
 	fakeGH := writeFakeGHCopy(t)
 	stdout, stderr, code := captureProcessOutput(t, func() int {
 		return run([]string{
-			"ghapp",
+			"viagh",
 			"--app-id", "123",
 			"--private-key", keyPath,
 			"--api-url", server.URL,

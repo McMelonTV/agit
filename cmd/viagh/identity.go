@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/McMelonTV/agit/internal/broker"
-	"github.com/McMelonTV/agit/internal/config"
-	"github.com/McMelonTV/agit/internal/wrapper"
+	"github.com/McMelonTV/viagh/internal/broker"
+	"github.com/McMelonTV/viagh/internal/config"
+	"github.com/McMelonTV/viagh/internal/wrapper"
 )
 
 func runCommitMessageHook(args []string) int {
@@ -40,7 +40,16 @@ func runCommitMessageHook(args []string) int {
 
 func applyGitAuthorship(cfg config.Config, backend broker.Backend, gitPath, self string, args, env []string) ([]string, []string, func(), error) {
 	cleanup := func() {}
-	if !cfg.OverrideGitIdentity || !wrapper.GitMayCreateCommit(args) {
+	if !cfg.OverrideGitIdentity {
+		return args, env, cleanup, nil
+	}
+	mayCreateCommit := wrapper.GitMayCreateCommit(args)
+	commandIsAlias := false
+	if !mayCreateCommit {
+		commandIsAlias = wrapper.GitCommandIsAlias(gitPath, args, env)
+		mayCreateCommit = commandIsAlias
+	}
+	if !mayCreateCommit {
 		return args, env, cleanup, nil
 	}
 
@@ -89,7 +98,7 @@ func applyGitAuthorship(cfg config.Config, backend broker.Backend, gitPath, self
 	trailer := bot.Trailer()
 	env = wrapper.SetCoauthorTrailer(env, trailer)
 	args = wrapper.AddCommitTreeTrailer(args, trailer)
-	if !wrapper.GitUsesCommitMessageHook(args) {
+	if !wrapper.GitUsesCommitMessageHook(args) && !commandIsAlias {
 		return args, env, cleanup, nil
 	}
 	hooksPath, hookCleanup, err := wrapper.PrepareCommitHooks(gitPath, self, args, env, trailer)

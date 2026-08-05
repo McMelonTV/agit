@@ -9,7 +9,7 @@ import (
 )
 
 func CreateShims(executable string) (string, func(), error) {
-	directory, err := os.MkdirTemp("", "ghapp-shims-")
+	directory, err := os.MkdirTemp("", "viagh-shims-")
 	if err != nil {
 		return "", nil, fmt.Errorf("create shim directory: %w", err)
 	}

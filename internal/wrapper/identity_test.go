@@ -1,6 +1,9 @@
 package wrapper
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -73,8 +76,42 @@ func TestGitMayCreateCommit(t *testing.T) {
 }
 
 func TestAddCommitTreeTrailer(t *testing.T) {
-	args := AddCommitTreeTrailer([]string{"-C", "/tmp/repo", "commit-tree", "deadbeef"}, "Co-authored-by: Bot <bot@example.com>")
+	trailer := "Co-authored-by: Bot <bot@example.com>"
+	args := AddCommitTreeTrailer([]string{"-C", "/tmp/repo", "commit-tree", "deadbeef"}, trailer)
 	if got := strings.Join(args, "|"); got != "-C|/tmp/repo|commit-tree|deadbeef|-m|Co-authored-by: Bot <bot@example.com>" {
 		t.Fatalf("args = %q", got)
+	}
+	unchanged := AddCommitTreeTrailer(args, trailer)
+	if strings.Join(unchanged, "|") != strings.Join(args, "|") {
+		t.Fatalf("trailer was duplicated: %v", unchanged)
+	}
+	attached := []string{"commit-tree", "deadbeef", "--message=" + trailer}
+	if got := AddCommitTreeTrailer(attached, trailer); strings.Join(got, "|") != strings.Join(attached, "|") {
+		t.Fatalf("attached trailer was duplicated: %v", got)
+	}
+}
+
+func TestGitCommandIsAlias(t *testing.T) {
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git unavailable")
+	}
+	dir := t.TempDir()
+	cmd := exec.Command(gitPath, "-C", dir, "init")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v: %s", err, output)
+	}
+	cmd = exec.Command(gitPath, "-C", dir, "config", "alias.ci", "commit")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git config alias: %v: %s", err, output)
+	}
+	env := os.Environ()
+	env = SetEnv(env, "GIT_CONFIG_NOSYSTEM", "1")
+	env = SetEnv(env, "GIT_CONFIG_GLOBAL", os.DevNull)
+	if !GitCommandIsAlias(gitPath, []string{"-C", filepath.Clean(dir), "ci"}, env) {
+		t.Fatal("configured alias was not detected")
+	}
+	if GitCommandIsAlias(gitPath, []string{"-C", filepath.Clean(dir), "status"}, env) {
+		t.Fatal("built-in command was incorrectly detected as an alias")
 	}
 }

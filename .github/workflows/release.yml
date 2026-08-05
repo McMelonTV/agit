@@ -8,15 +8,24 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.26.5'
           check-latest: true
+      - name: Test
+        run: go test ./...
+      - name: Vet
+        run: go vet ./...
       - name: Build release archives
         env:
           VERSION: ${{ github.ref_name }}

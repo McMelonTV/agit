@@ -1,3 +1,3 @@
-module github.com/McMelonTV/agit
+module github.com/McMelonTV/viagh
 
-go 1.23
+go 1.25

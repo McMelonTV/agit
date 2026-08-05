@@ -16,7 +16,7 @@ func FindRealBinary(name, configured string) (string, error) {
 
 	self, err := os.Executable()
 	if err != nil {
-		return "", fmt.Errorf("locate ghapp executable: %w", err)
+		return "", fmt.Errorf("locate viagh executable: %w", err)
 	}
 	selfInfo, _ := os.Stat(self)
 
@@ -40,7 +40,7 @@ func FindRealBinary(name, configured string) (string, error) {
 			return candidate, nil
 		}
 	}
-	return "", fmt.Errorf("could not find underlying %s executable; set GHAPP_REAL_%s", name, strings.ToUpper(name))
+	return "", fmt.Errorf("could not find underlying %s executable; set VIAGH_REAL_%s", name, strings.ToUpper(name))
 }
 
 func validateConfiguredBinary(name, configured string) (string, error) {
@@ -75,7 +75,7 @@ func validateConfiguredBinary(name, configured string) (string, error) {
 			}
 		}
 		if !found {
-			return "", fmt.Errorf("configured %s executable %q was not found on PATH outside ghapp", name, configured)
+			return "", fmt.Errorf("configured %s executable %q was not found on PATH outside viagh", name, configured)
 		}
 	}
 	info, err := os.Stat(path)
@@ -86,7 +86,7 @@ func validateConfiguredBinary(name, configured string) (string, error) {
 		return "", fmt.Errorf("configured %s path %q is not executable", name, path)
 	}
 	if selfInfo != nil && os.SameFile(selfInfo, info) {
-		return "", errors.New("configured underlying executable points back to ghapp")
+		return "", errors.New("configured underlying executable points back to viagh")
 	}
 	absolute, err := filepath.Abs(path)
 	if err == nil {

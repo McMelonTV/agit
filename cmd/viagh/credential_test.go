@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/McMelonTV/agit/internal/broker"
-	"github.com/McMelonTV/agit/internal/config"
-	"github.com/McMelonTV/agit/internal/githubapp"
-	"github.com/McMelonTV/agit/internal/repository"
+	"github.com/McMelonTV/viagh/internal/broker"
+	"github.com/McMelonTV/viagh/internal/config"
+	"github.com/McMelonTV/viagh/internal/githubapp"
+	"github.com/McMelonTV/viagh/internal/repository"
 )
 
 type recordingBackend struct {
@@ -61,7 +61,7 @@ func TestCredentialHelperRejectsUnrelatedHost(t *testing.T) {
 	defer server.Close()
 	t.Setenv(broker.URLEnv, server.URL)
 	t.Setenv(broker.SecretEnv, server.Secret)
-	t.Setenv("GHAPP_RUNTIME_TOKEN", "stale-secret")
+	t.Setenv("VIAGH_RUNTIME_TOKEN", "stale-secret")
 
 	cfg := config.Config{Host: "github.com", HTTPTimeout: time.Second}
 	stdout, stderr, code := runCredentialWithInput(t, cfg, "protocol=https\nhost=attacker.example\npath=acme/widgets.git\n\n")

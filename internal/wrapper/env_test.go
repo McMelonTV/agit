@@ -11,10 +11,10 @@ func TestApplyGitAuthPreservesExistingConfigAndScopesHelper(t *testing.T) {
 		"GIT_CONFIG_COUNT=1",
 		"GIT_CONFIG_KEY_0=core.autocrlf",
 		"GIT_CONFIG_VALUE_0=false",
-		"GHAPP_RUNTIME_TOKEN=stale",
+		"VIAGH_RUNTIME_TOKEN=stale",
 		"GIT_ASKPASS=/tmp/old",
 	}
-	got, err := ApplyGitAuth(env, "/tmp/ghapp", "github.com")
+	got, err := ApplyGitAuth(env, "/tmp/viagh", "github.com")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestApplyGitAuthPreservesExistingConfigAndScopesHelper(t *testing.T) {
 	if count != 15 {
 		t.Fatalf("GIT_CONFIG_COUNT = %d, want 15", count)
 	}
-	if _, ok := LookupEnv(got, "GHAPP_RUNTIME_TOKEN"); ok {
+	if _, ok := LookupEnv(got, "VIAGH_RUNTIME_TOKEN"); ok {
 		t.Fatal("stale runtime token was retained")
 	}
 	if value, ok := LookupEnv(got, "GIT_ASKPASS"); !ok || value != "/tmp/old" {
@@ -52,7 +52,7 @@ func TestApplyGitAuthPreservesExistingConfigAndScopesHelper(t *testing.T) {
 }
 
 func TestApplyGitAuthIncludesSecureRemoteRewrites(t *testing.T) {
-	env, err := ApplyGitAuth(nil, "/tmp/ghapp", "github.com")
+	env, err := ApplyGitAuth(nil, "/tmp/viagh", "github.com")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,9 +82,9 @@ func TestApplyGitAuthIncludesSecureRemoteRewrites(t *testing.T) {
 
 func TestSanitizeEnvRemovesPrivateKeyMaterial(t *testing.T) {
 	got := SanitizeEnv([]string{
-		"GHAPP_PRIVATE_KEY=/key",
-		"GHAPP_PRIVATE_KEY_PEM=secret",
-		"GHAPP_PRIVATE_KEY_BASE64=secret",
+		"VIAGH_PRIVATE_KEY=/key",
+		"VIAGH_PRIVATE_KEY_PEM=secret",
+		"VIAGH_PRIVATE_KEY_BASE64=secret",
 		"GITHUB_APP_PRIVATE_KEY=secret",
 		"GIT_ASKPASS=/tmp/prompt",
 		"SSH_ASKPASS=/tmp/ssh-prompt",
@@ -98,7 +98,7 @@ func TestSanitizeEnvRemovesPrivateKeyMaterial(t *testing.T) {
 			t.Fatalf("%s was not preserved", key)
 		}
 	}
-	for _, key := range []string{"GHAPP_PRIVATE_KEY", "GHAPP_PRIVATE_KEY_PEM", "GHAPP_PRIVATE_KEY_BASE64", "GITHUB_APP_PRIVATE_KEY"} {
+	for _, key := range []string{"VIAGH_PRIVATE_KEY", "VIAGH_PRIVATE_KEY_PEM", "VIAGH_PRIVATE_KEY_BASE64", "GITHUB_APP_PRIVATE_KEY"} {
 		if _, ok := LookupEnv(got, key); ok {
 			t.Fatalf("%s was not removed", key)
 		}
@@ -111,7 +111,7 @@ func TestStripGitAuthRestoresInheritedProcessConfig(t *testing.T) {
 		"GIT_CONFIG_KEY_0=core.autocrlf",
 		"GIT_CONFIG_VALUE_0=false",
 	}
-	wrapped, err := ApplyGitAuth(env, "/tmp/ghapp", "github.com")
+	wrapped, err := ApplyGitAuth(env, "/tmp/viagh", "github.com")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestStripGitAuthRestoresInheritedProcessConfig(t *testing.T) {
 		t.Fatalf("inherited key = %q", key)
 	}
 	if _, ok := LookupEnv(stripped, "GIT_CONFIG_KEY_1"); ok {
-		t.Fatal("ghapp Git configuration was retained")
+		t.Fatal("viagh Git configuration was retained")
 	}
 }
 
@@ -154,13 +154,13 @@ func TestRemoveActiveAppAuthRemovesInjectedTokens(t *testing.T) {
 
 func TestClearGitAuthTrackingDoesNotAlterUserGitConfig(t *testing.T) {
 	env := []string{
-		"GHAPP_GIT_CONFIG_START=0",
+		"VIAGH_GIT_CONFIG_START=0",
 		"GIT_CONFIG_COUNT=1",
 		"GIT_CONFIG_KEY_0=core.autocrlf",
 		"GIT_CONFIG_VALUE_0=false",
 	}
 	cleaned := ClearGitAuthTracking(env)
-	if _, ok := LookupEnv(cleaned, "GHAPP_GIT_CONFIG_START"); ok {
+	if _, ok := LookupEnv(cleaned, "VIAGH_GIT_CONFIG_START"); ok {
 		t.Fatal("untrusted tracking marker was retained")
 	}
 	if value, _ := LookupEnv(cleaned, "GIT_CONFIG_KEY_0"); value != "core.autocrlf" {

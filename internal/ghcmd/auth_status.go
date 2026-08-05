@@ -4,7 +4,7 @@ import "strings"
 
 // IsAuthStatusJSONHosts identifies the machine-readable authentication probe
 // used by clients such as T3 Code. Other auth commands remain pass-through so
-// ghapp does not pretend to manage the real GitHub CLI credential store.
+// viagh does not pretend to manage the real GitHub CLI credential store.
 func IsAuthStatusJSONHosts(args []string) bool {
 	if len(args) < 3 || args[0] != "auth" || args[1] != "status" {
 		return false

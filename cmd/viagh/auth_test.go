@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/McMelonTV/agit/internal/broker"
-	"github.com/McMelonTV/agit/internal/config"
-	"github.com/McMelonTV/agit/internal/wrapper"
+	"github.com/McMelonTV/viagh/internal/broker"
+	"github.com/McMelonTV/viagh/internal/config"
+	"github.com/McMelonTV/viagh/internal/wrapper"
 )
 
 func TestBeginAuthSessionDoesNotTrustBrokerWithoutRestrictedSession(t *testing.T) {
@@ -52,20 +52,20 @@ func TestAuthSessionEnvironmentOmitsPrivateKeyAndNormalizesSelectors(t *testing.
 	}
 	defer session.Close()
 	env := session.Environment([]string{
-		"GHAPP_PRIVATE_KEY=/old/key",
-		"GHAPP_PRIVATE_KEY_PEM=old-secret",
-		"GHAPP_OWNER=wrong",
+		"VIAGH_PRIVATE_KEY=/old/key",
+		"VIAGH_PRIVATE_KEY_PEM=old-secret",
+		"VIAGH_OWNER=wrong",
 		"GH_REPO=wrong/repo",
 	})
-	for _, key := range []string{"GHAPP_PRIVATE_KEY", "GHAPP_PRIVATE_KEY_PEM", "GHAPP_PRIVATE_KEY_BASE64", "GITHUB_APP_PRIVATE_KEY"} {
+	for _, key := range []string{"VIAGH_PRIVATE_KEY", "VIAGH_PRIVATE_KEY_PEM", "VIAGH_PRIVATE_KEY_BASE64", "GITHUB_APP_PRIVATE_KEY"} {
 		if _, ok := wrapper.LookupEnv(env, key); ok {
 			t.Fatalf("%s leaked", key)
 		}
 	}
 	for key, want := range map[string]string{
-		"GHAPP_INSTALLATION_ID": "7",
-		"GHAPP_OWNER":           "acme",
-		"GHAPP_REPOSITORY":      "acme/widgets",
+		"VIAGH_INSTALLATION_ID": "7",
+		"VIAGH_OWNER":           "acme",
+		"VIAGH_REPOSITORY":      "acme/widgets",
 		"GH_REPO":               "acme/widgets",
 		"GH_HOST":               "github.com",
 	} {
@@ -103,7 +103,7 @@ func TestRestrictedAuthSessionRemovesInheritedAppTokenBeforeSanitizingMarker(t *
 	if _, ok := wrapper.LookupEnv(env, "GITHUB_TOKEN"); ok {
 		t.Fatal("inherited App fallback token was retained")
 	}
-	if _, ok := wrapper.LookupEnv(env, "GHAPP_ACTIVE_TOKEN_SHA256"); ok {
+	if _, ok := wrapper.LookupEnv(env, "VIAGH_ACTIVE_TOKEN_SHA256"); ok {
 		t.Fatal("active token marker was retained")
 	}
 }
@@ -116,12 +116,12 @@ func TestTopLevelAuthSessionIgnoresUntrustedGitTrackingMarker(t *testing.T) {
 	}
 	session := &authSession{cfg: cfg, client: broker.Client{URL: "http://127.0.0.1:1", Secret: "secret"}, encoded: encoded}
 	env := session.Environment([]string{
-		"GHAPP_GIT_CONFIG_START=0",
+		"VIAGH_GIT_CONFIG_START=0",
 		"GIT_CONFIG_COUNT=1",
 		"GIT_CONFIG_KEY_0=core.autocrlf",
 		"GIT_CONFIG_VALUE_0=false",
 	})
-	if _, ok := wrapper.LookupEnv(env, "GHAPP_GIT_CONFIG_START"); ok {
+	if _, ok := wrapper.LookupEnv(env, "VIAGH_GIT_CONFIG_START"); ok {
 		t.Fatal("untrusted tracking marker was retained")
 	}
 	if value, _ := wrapper.LookupEnv(env, "GIT_CONFIG_KEY_0"); value != "core.autocrlf" {

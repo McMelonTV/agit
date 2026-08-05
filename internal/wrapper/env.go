@@ -10,18 +10,18 @@ import (
 	"strings"
 )
 
-const gitConfigStartEnv = "GHAPP_GIT_CONFIG_START"
+const gitConfigStartEnv = "VIAGH_GIT_CONFIG_START"
 
-const activeTokenHashEnv = "GHAPP_ACTIVE_TOKEN_SHA256"
+const activeTokenHashEnv = "VIAGH_ACTIVE_TOKEN_SHA256"
 
 var sensitiveEnvironment = []string{
-	"GHAPP_PRIVATE_KEY",
-	"GHAPP_PRIVATE_KEY_PEM",
-	"GHAPP_PRIVATE_KEY_BASE64",
+	"VIAGH_PRIVATE_KEY",
+	"VIAGH_PRIVATE_KEY_PEM",
+	"VIAGH_PRIVATE_KEY_BASE64",
 	"GITHUB_APP_PRIVATE_KEY",
-	"GHAPP_RUNTIME_TOKEN",
-	"GHAPP_RUNTIME_REPOSITORY",
-	"GHAPP_ASKPASS",
+	"VIAGH_RUNTIME_TOKEN",
+	"VIAGH_RUNTIME_REPOSITORY",
+	"VIAGH_ASKPASS",
 	coauthorTrailerEnv,
 	activeTokenHashEnv,
 }
@@ -46,9 +46,9 @@ func ApplyGitAuth(env []string, executable, host string) ([]string, error) {
 		}
 		env = SetEnv(env, gitConfigStartEnv, strconv.Itoa(count))
 	}
-	env = UnsetEnv(env, "GHAPP_RUNTIME_TOKEN")
-	env = UnsetEnv(env, "GHAPP_RUNTIME_REPOSITORY")
-	env = UnsetEnv(env, "GHAPP_ASKPASS")
+	env = UnsetEnv(env, "VIAGH_RUNTIME_TOKEN")
+	env = UnsetEnv(env, "VIAGH_RUNTIME_REPOSITORY")
+	env = UnsetEnv(env, "VIAGH_ASKPASS")
 
 	helperExecutable := executable
 	if runtime.GOOS == "windows" {
@@ -110,7 +110,7 @@ func ClearGHAuth(env []string) []string {
 }
 
 // RemoveActiveAppAuth removes only token values that were injected by the
-// current ghapp process. A nested command may deliberately replace GH_TOKEN
+// current viagh process. A nested command may deliberately replace GH_TOKEN
 // with a user token for another host; that replacement is preserved.
 func RemoveActiveAppAuth(env []string) []string {
 	expected, ok := LookupEnv(env, activeTokenHashEnv)

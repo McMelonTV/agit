@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/McMelonTV/agit/internal/config"
+	"github.com/McMelonTV/viagh/internal/config"
 )
 
 type ghAuthStatusEntry struct {
@@ -62,7 +62,7 @@ func writeGitHubAppAuthStatus(cfg config.Config, host, login string, authErr err
 		Active:      true,
 		Host:        host,
 		Login:       login,
-		TokenSource: "ghapp",
+		TokenSource: "viagh",
 		GitProtocol: "https",
 	}
 	if authErr != nil {

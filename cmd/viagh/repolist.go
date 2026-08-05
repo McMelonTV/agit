@@ -10,12 +10,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/McMelonTV/agit/internal/broker"
-	"github.com/McMelonTV/agit/internal/config"
-	"github.com/McMelonTV/agit/internal/ghcmd"
-	"github.com/McMelonTV/agit/internal/githubapp"
-	"github.com/McMelonTV/agit/internal/repository"
-	"github.com/McMelonTV/agit/internal/wrapper"
+	"github.com/McMelonTV/viagh/internal/broker"
+	"github.com/McMelonTV/viagh/internal/config"
+	"github.com/McMelonTV/viagh/internal/ghcmd"
+	"github.com/McMelonTV/viagh/internal/githubapp"
+	"github.com/McMelonTV/viagh/internal/repository"
+	"github.com/McMelonTV/viagh/internal/wrapper"
 )
 
 func runRepoListAcrossInstallations(cfg config.Config, backend broker.Backend, ghPath string, args []string, self string, baseEnv []string) int {

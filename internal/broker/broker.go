@@ -18,13 +18,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/McMelonTV/agit/internal/githubapp"
-	"github.com/McMelonTV/agit/internal/repository"
+	"github.com/McMelonTV/viagh/internal/githubapp"
+	"github.com/McMelonTV/viagh/internal/repository"
 )
 
 const (
-	URLEnv    = "GHAPP_BROKER_URL"
-	SecretEnv = "GHAPP_BROKER_SECRET"
+	URLEnv    = "VIAGH_BROKER_URL"
+	SecretEnv = "VIAGH_BROKER_SECRET"
 
 	maxRequestBytes  = 64 << 10
 	maxResponseBytes = 1 << 20

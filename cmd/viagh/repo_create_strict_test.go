@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/McMelonTV/agit/internal/config"
+	"github.com/McMelonTV/viagh/internal/config"
 )
 
 func TestRepoCreateUnqualifiedNameRequiresConfiguredOwner(t *testing.T) {
@@ -22,7 +22,7 @@ exit 97
 `)
 
 	for name, argv := range map[string][]string{
-		"wrapper": {"ghapp", "--real-gh", fakeGH, "gh", "repo", "create", "widgets", "--private"},
+		"wrapper": {"viagh", "--real-gh", fakeGH, "gh", "repo", "create", "widgets", "--private"},
 		"shim":    {fakeGH, "repo", "create", "widgets", "--private"},
 	} {
 		t.Run(name, func(t *testing.T) {

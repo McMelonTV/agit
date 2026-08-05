@@ -4,8 +4,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/McMelonTV/agit/internal/config"
-	"github.com/McMelonTV/agit/internal/ghcmd"
+	"github.com/McMelonTV/viagh/internal/config"
+	"github.com/McMelonTV/viagh/internal/ghcmd"
 )
 
 func validateRepoCreateOwner(cfg config.Config, tool string, args []string) error {
@@ -16,7 +16,7 @@ func validateRepoCreateOwner(cfg config.Config, tool string, args []string) erro
 		return nil
 	}
 	if strings.TrimSpace(cfg.Owner) == "" {
-		return errors.New("unqualified gh repo create target requires an explicit owner; use OWNER/REPO or set GHAPP_OWNER/--owner")
+		return errors.New("unqualified gh repo create target requires an explicit owner; use OWNER/REPO or set VIAGH_OWNER/--owner")
 	}
 	return nil
 }

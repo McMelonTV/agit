@@ -10,9 +10,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/McMelonTV/agit/internal/broker"
-	"github.com/McMelonTV/agit/internal/config"
-	"github.com/McMelonTV/agit/internal/repository"
+	"github.com/McMelonTV/viagh/internal/broker"
+	"github.com/McMelonTV/viagh/internal/config"
+	"github.com/McMelonTV/viagh/internal/repository"
 )
 
 type gitCredential struct {
@@ -76,7 +76,7 @@ func credentialFailure(err error) int {
 	// through to GIT_ASKPASS, a terminal prompt, or a user credential helper.
 	fmt.Println("quit=1")
 	fmt.Println()
-	fmt.Fprintln(os.Stderr, "ghapp:", err)
+	fmt.Fprintln(os.Stderr, "viagh:", err)
 	return 0
 }
 

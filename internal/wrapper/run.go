@@ -15,7 +15,7 @@ func Run(path string, args, env []string) int {
 	cmd.Stderr = os.Stderr
 	cmd.Env = env
 	if err := cmd.Start(); err != nil {
-		_, _ = os.Stderr.WriteString("ghapp: " + err.Error() + "\n")
+		_, _ = os.Stderr.WriteString("viagh: " + err.Error() + "\n")
 		return 1
 	}
 	stopForwarding := forwardSignals(cmd.Process)
@@ -26,7 +26,7 @@ func Run(path string, args, env []string) int {
 		if errors.As(err, &exitErr) {
 			return processExitCode(exitErr)
 		}
-		_, _ = os.Stderr.WriteString("ghapp: " + err.Error() + "\n")
+		_, _ = os.Stderr.WriteString("viagh: " + err.Error() + "\n")
 		return 1
 	}
 	return 0

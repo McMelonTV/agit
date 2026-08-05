@@ -73,7 +73,7 @@ func NewClient(appID string, key *rsa.PrivateKey, apiURL, apiVersion string, htt
 		APIURL:     strings.TrimRight(apiURL, "/"),
 		APIVersion: apiVersion,
 		HTTPClient: sameOriginRedirectClient(httpClient),
-		UserAgent:  "ghapp/dev",
+		UserAgent:  "viagh/dev",
 		Now:        time.Now,
 	}
 }

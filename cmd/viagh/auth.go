@@ -10,11 +10,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/McMelonTV/agit/internal/broker"
-	"github.com/McMelonTV/agit/internal/config"
-	"github.com/McMelonTV/agit/internal/githubapp"
-	"github.com/McMelonTV/agit/internal/repository"
-	"github.com/McMelonTV/agit/internal/wrapper"
+	"github.com/McMelonTV/viagh/internal/broker"
+	"github.com/McMelonTV/viagh/internal/config"
+	"github.com/McMelonTV/viagh/internal/githubapp"
+	"github.com/McMelonTV/viagh/internal/repository"
+	"github.com/McMelonTV/viagh/internal/wrapper"
 )
 
 type localBackend struct {
@@ -37,7 +37,7 @@ func (b *localBackend) appClient() (*githubapp.Client, error) {
 		if privateKeyPEM == "" && b.cfg.PrivateKeyBase64 != "" {
 			decoded, err := base64.StdEncoding.DecodeString(b.cfg.PrivateKeyBase64)
 			if err != nil {
-				b.err = fmt.Errorf("decode GHAPP_PRIVATE_KEY_BASE64: %w", err)
+				b.err = fmt.Errorf("decode VIAGH_PRIVATE_KEY_BASE64: %w", err)
 				return
 			}
 			privateKeyPEM = string(decoded)
@@ -49,7 +49,7 @@ func (b *localBackend) appClient() (*githubapp.Client, error) {
 		}
 		httpClient := &http.Client{Timeout: b.cfg.HTTPTimeout}
 		b.client = githubapp.NewClient(b.cfg.AppID, key, b.cfg.APIURL, b.cfg.APIVersion, httpClient)
-		b.client.UserAgent = "ghapp/" + version
+		b.client.UserAgent = "viagh/" + version
 	})
 	return b.client, b.err
 }
@@ -141,7 +141,7 @@ func beginAuthSession(cfg config.Config) (*authSession, error) {
 	if cfg.SessionRestricted {
 		client, ok := broker.FromEnv()
 		if !ok {
-			return nil, errors.New("active ghapp credential broker is unavailable")
+			return nil, errors.New("active viagh credential broker is unavailable")
 		}
 		return &authSession{cfg: cfg, backend: client, client: client, encoded: encoded}, nil
 	}
@@ -157,7 +157,7 @@ func beginAuthSession(cfg config.Config) (*authSession, error) {
 func (s *authSession) Environment(base []string) []string {
 	env := append([]string(nil), base...)
 	if s.cfg.SessionRestricted {
-		// A nested ghapp process may inherit an installation token injected by
+		// A nested viagh process may inherit an installation token injected by
 		// its parent. Remove that exact token before dropping the tracking hash;
 		// otherwise a later pass-through command for another host could leak it.
 		env = wrapper.RemoveActiveAppAuth(env)
@@ -167,19 +167,19 @@ func (s *authSession) Environment(base []string) []string {
 		env = wrapper.ClearGitAuthTracking(env)
 	}
 	env = wrapper.SanitizeEnv(env)
-	env = setOptionalEnv(env, "GHAPP_INSTALLATION_ID", func() string {
+	env = setOptionalEnv(env, "VIAGH_INSTALLATION_ID", func() string {
 		if s.cfg.InstallationID > 0 {
 			return strconv.FormatInt(s.cfg.InstallationID, 10)
 		}
 		return ""
 	}())
-	env = setOptionalEnv(env, "GHAPP_OWNER", s.cfg.Owner)
-	env = setOptionalEnv(env, "GHAPP_REPOSITORY", s.cfg.Repository)
+	env = setOptionalEnv(env, "VIAGH_OWNER", s.cfg.Owner)
+	env = setOptionalEnv(env, "VIAGH_REPOSITORY", s.cfg.Repository)
 	env = setOptionalEnv(env, "GH_REPO", s.cfg.Repository)
 	env = wrapper.SetEnv(env, "GH_HOST", s.cfg.Host)
-	env = setOptionalEnv(env, "GHAPP_REAL_GH", s.cfg.RealGH)
-	env = setOptionalEnv(env, "GHAPP_REAL_GIT", s.cfg.RealGit)
-	env = wrapper.UnsetEnv(env, "GHAPP_PASSTHROUGH")
+	env = setOptionalEnv(env, "VIAGH_REAL_GH", s.cfg.RealGH)
+	env = setOptionalEnv(env, "VIAGH_REAL_GIT", s.cfg.RealGit)
+	env = wrapper.UnsetEnv(env, "VIAGH_PASSTHROUGH")
 	env = wrapper.SetEnv(env, config.SessionConfigEnv, s.encoded)
 	env = wrapper.SetEnv(env, broker.URLEnv, s.client.URL)
 	env = wrapper.SetEnv(env, broker.SecretEnv, s.client.Secret)
@@ -243,7 +243,7 @@ func resolveInstallation(ctx context.Context, client *githubapp.Client, cfg conf
 			}
 			choices = append(choices, label)
 		}
-		return githubapp.Installation{}, fmt.Errorf("multiple GitHub App installations found: %s; set GHAPP_INSTALLATION_ID, GHAPP_OWNER, or GHAPP_REPOSITORY", strings.Join(choices, ", "))
+		return githubapp.Installation{}, fmt.Errorf("multiple GitHub App installations found: %s; set VIAGH_INSTALLATION_ID, VIAGH_OWNER, or VIAGH_REPOSITORY", strings.Join(choices, ", "))
 	}
 }
 
