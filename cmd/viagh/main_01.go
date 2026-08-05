@@ -26,7 +26,7 @@ func run(argv []string) int {
 	}
 	if len(argv) == 2 {
 		switch argv[1] {
-		case "version", "--version":
+		case "version", "--version", "-v":
 			fmt.Println("viagh " + version)
 			return 0
 		case "help", "--help", "-h":
@@ -101,7 +101,7 @@ func run(argv []string) int {
 	case "help", "--help", "-h":
 		printUsage()
 		return 0
-	case "version", "--version":
+	case "version", "--version", "-v":
 		fmt.Println("viagh " + version)
 		return 0
 	case "gh", "git":
