@@ -172,6 +172,7 @@ func runTool(cfg config.Config, tool string, args []string) int {
 		argumentRepository, hasArgumentRepository := repository.FromRepoFlag(args, cfg.Host)
 		owner, _ = ghcmd.Owner(args)
 		positionalRepository, hasPositionalRepository := repository.FromArgs(tool, args, cfg.Host)
+		_, hasUnqualifiedRepoCreate := ghcmd.RepoCreateUnqualifiedName(args)
 
 		switch {
 		case hasArgumentRepository:
@@ -191,6 +192,12 @@ func runTool(cfg config.Config, tool string, args []string) int {
 			if ok {
 				hint = configuredRef
 			}
+		case hasUnqualifiedRepoCreate:
+			// An unqualified create target names a new repository, not the
+			// repository in the current working directory. Resolve it from an
+			// explicit owner/installation or the sole App installation, then
+			// qualify the target after token selection below.
+			hint = repository.Ref{}
 		default:
 			if ambient, ok := repository.CurrentAny(context.Background(), realGit, args); ok {
 				if ambient.Host != "" && !repository.HostMatches(ambient.Host, cfg.Host) {

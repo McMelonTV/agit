@@ -262,8 +262,16 @@ if [ "$1:$2:$3:$GH_TOKEN" != "repo:create:acme/widgets:token-4" ]; then
 fi
 printf 'qualified-create-ok\n'
 `)
+	fakeGit := writeExecutable(t, `#!/bin/sh
+if [ "$1:$2:$3" = "remote:get-url:origin" ]; then
+  printf 'https://github.com/McMelonTV/agit.git\n'
+  exit 0
+fi
+exit 1
+`)
 	cfg := testConfig(keyPath, server.URL)
 	cfg.RealGH = fakeGH
+	cfg.RealGit = fakeGit
 	stdout, stderr, code := captureProcessOutput(t, func() int {
 		return runTool(cfg, "gh", []string{"repo", "create", "widgets", "--private"})
 	})
