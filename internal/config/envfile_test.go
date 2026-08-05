@@ -121,6 +121,30 @@ func TestLoadEnvFileInvalidVariableName(t *testing.T) {
 	}
 }
 
+func TestLoadEnvFileHomeConfigFallback(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix-only XDG fallback resolution")
+	}
+	dir := t.TempDir()
+	viaghDir := filepath.Join(dir, ".config", "viagh")
+	if err := os.MkdirAll(viaghDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(viaghDir, "viagh.env"), []byte("export VIAGH_OWNER=acme\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", dir)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv(configFileEnv, "")
+	unsetEnvForTest(t, "VIAGH_OWNER")
+	if err := LoadEnvFile(); err != nil {
+		t.Fatalf("LoadEnvFile() error: %v", err)
+	}
+	if got := os.Getenv("VIAGH_OWNER"); got != "acme" {
+		t.Fatalf("VIAGH_OWNER = %q, want acme", got)
+	}
+}
+
 func TestLoadEnvFileOverridePath(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "custom.env")

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -73,9 +74,21 @@ func envFilePath() (string, error) {
 	if value := os.Getenv(configFileEnv); value != "" {
 		return value, nil
 	}
-	base, err := os.UserConfigDir()
-	if err != nil || base == "" {
-		return "", nil
+	var base string
+	if runtime.GOOS == "windows" {
+		base = os.Getenv("AppData")
+		if base == "" {
+			return "", nil
+		}
+	} else {
+		base = os.Getenv("XDG_CONFIG_HOME")
+		if base == "" {
+			home, err := os.UserHomeDir()
+			if err != nil || home == "" {
+				return "", nil
+			}
+			base = filepath.Join(home, ".config")
+		}
 	}
 	return filepath.Join(base, configFileDirName, envFileName), nil
 }
