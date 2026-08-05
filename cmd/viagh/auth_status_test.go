@@ -128,6 +128,130 @@ func TestT3CodeAuthProbeReturnsParseableErrorWithZeroExitCode(t *testing.T) {
 	}
 }
 
+func TestGitHubAppAuthStatusTextReportsAppBot(t *testing.T) {
+	keyPath := writeTestPrivateKey(t)
+	var mu sync.Mutex
+	var requests []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requests = append(requests, r.Method+" "+r.URL.Path)
+		mu.Unlock()
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/app":
+			_ = json.NewEncoder(w).Encode(map[string]any{"slug": "test-app"})
+		case r.Method == http.MethodGet && r.URL.Path == "/users/test-app[bot]":
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": 12345, "login": "test-app[bot]"})
+		default:
+			http.Error(w, "unexpected endpoint", http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("VIAGH_TEST_FAKE_GH", "1")
+	fakeGH := writeFakeGHCopy(t)
+	stdout, stderr, code := captureProcessOutput(t, func() int {
+		return run([]string{
+			"viagh",
+			"--app-id", "123",
+			"--private-key", keyPath,
+			"--api-url", server.URL,
+			"--real-gh", fakeGH,
+			"--no-cache",
+			"gh", "auth", "status",
+		})
+	})
+	if code != 0 || stderr != "" {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	want := "github.com\n" +
+		"  \u2713 Logged in to github.com account test-app[bot] (viagh)\n" +
+		"  - Active account: true\n" +
+		"  - Git operations protocol: https\n"
+	if stdout != want {
+		t.Fatalf("unexpected text status:\n%q\nwant:\n%q", stdout, want)
+	}
+
+	mu.Lock()
+	gotRequests := strings.Join(requests, ",")
+	mu.Unlock()
+	if gotRequests != "GET /app,GET /users/test-app[bot]" {
+		t.Fatalf("auth probe made unexpected API requests: %s", gotRequests)
+	}
+}
+
+func TestGitHubAppAuthStatusTextAcceptsHostAndActiveFlags(t *testing.T) {
+	keyPath := writeTestPrivateKey(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/app":
+			_ = json.NewEncoder(w).Encode(map[string]any{"slug": "test-app"})
+		case r.Method == http.MethodGet && r.URL.Path == "/users/test-app[bot]":
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": 12345, "login": "test-app[bot]"})
+		default:
+			http.Error(w, "unexpected endpoint", http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("VIAGH_TEST_FAKE_GH", "1")
+	fakeGH := writeFakeGHCopy(t)
+	stdout, stderr, code := captureProcessOutput(t, func() int {
+		return run([]string{
+			"viagh",
+			"--app-id", "123",
+			"--private-key", keyPath,
+			"--api-url", server.URL,
+			"--real-gh", fakeGH,
+			"--no-cache",
+			"gh", "auth", "status", "--active", "--hostname", "github.com",
+		})
+	})
+	if code != 0 || stderr != "" {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	want := "github.com\n" +
+		"  \u2713 Logged in to github.com account test-app[bot] (viagh)\n" +
+		"  - Active account: true\n" +
+		"  - Git operations protocol: https\n"
+	if stdout != want {
+		t.Fatalf("unexpected text status:\n%q\nwant:\n%q", stdout, want)
+	}
+}
+
+func TestGitHubAppAuthStatusTextWritesErrorToStderr(t *testing.T) {
+	keyPath := writeTestPrivateKey(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"message":"Bad credentials"}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("VIAGH_TEST_FAKE_GH", "1")
+	fakeGH := writeFakeGHCopy(t)
+	stdout, stderr, code := captureProcessOutput(t, func() int {
+		return run([]string{
+			"viagh",
+			"--app-id", "123",
+			"--private-key", keyPath,
+			"--api-url", server.URL,
+			"--real-gh", fakeGH,
+			"--no-cache",
+			"gh", "auth", "status",
+		})
+	})
+	if code != 1 || stdout != "" {
+		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	wantPrefix := "github.com\n" +
+		"  X Failed to log in to github.com account github-app-123 (viagh)\n" +
+		"  - Active account: true\n" +
+		"  - GitHub App authentication failed: "
+	if !strings.HasPrefix(stderr, wantPrefix) || !strings.HasSuffix(stderr, "Bad credentials\n") {
+		t.Fatalf("unexpected error status:\n%q", stderr)
+	}
+}
+
 func writeFakeGHCopy(t *testing.T) string {
 	t.Helper()
 	contents, err := os.ReadFile(os.Args[0])

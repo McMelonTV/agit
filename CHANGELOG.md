@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Answer the plain `gh auth status` report with the GitHub App bot account, mirroring the GitHub CLI text format while keeping `--show-token`, `--jq`, and `--template` pass-through.
+
 ## 0.3.0
 
 - Rename the project, executable, module, environment namespace, runtime identifiers, and release artifacts to `viagh`.
