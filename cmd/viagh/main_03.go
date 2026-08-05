@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
@@ -107,6 +108,15 @@ func runInstallations(cfg config.Config) int {
 }
 
 func runDoctor(cfg config.Config) int {
+	fmt.Printf("user: %s\n", runningUser())
+	if dir, err := os.Getwd(); err == nil {
+		fmt.Printf("working directory: %s\n", dir)
+	}
+	if path, err := config.EnvFilePath(); err == nil && path != "" {
+		fmt.Printf("env file: %s\n", path)
+	} else if err != nil {
+		fmt.Printf("env file: unavailable (%v)\n", err)
+	}
 	fmt.Printf("host: %s\n", cfg.Host)
 	fmt.Printf("api: %s\n", cfg.APIURL)
 	fmt.Printf("git identity override: %t\n", cfg.OverrideGitIdentity)
@@ -147,6 +157,17 @@ func runDoctor(cfg config.Config) int {
 	fmt.Printf("installation: %d (%s)\n", installation.ID, account)
 	fmt.Printf("token: valid until %s\n", token.ExpiresAt.UTC().Format(time.RFC3339))
 	return 0
+}
+
+func runningUser() string {
+	user, err := user.Current()
+	if err != nil {
+		return "unknown"
+	}
+	if user.Uid == "" {
+		return user.Username
+	}
+	return fmt.Sprintf("%s (uid %s)", user.Username, user.Uid)
 }
 
 func backendFor(cfg config.Config) (broker.Backend, error) {

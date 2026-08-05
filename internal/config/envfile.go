@@ -25,7 +25,7 @@ const (
 // the file, and empty values are ignored. Values are literal: no shell
 // expansion, command substitution, or variable interpolation is performed.
 func LoadEnvFile() error {
-	path, err := envFilePath()
+	path, err := EnvFilePath()
 	if err != nil || path == "" {
 		return nil
 	}
@@ -70,7 +70,9 @@ func LoadEnvFile() error {
 	return nil
 }
 
-func envFilePath() (string, error) {
+// EnvFilePath returns the path of the viagh environment file, or "" when no
+// default location exists.
+func EnvFilePath() (string, error) {
 	if value := os.Getenv(configFileEnv); value != "" {
 		return value, nil
 	}
