@@ -81,6 +81,23 @@ export VIAGH_API_URL=https://github.example.com/api/v3
 
 `VIAGH_API_URL` must be an absolute HTTPS URL. Plain HTTP is accepted only for loopback addresses, which is useful for tests.
 
+### Environment file
+
+`viagh` also loads variables from an environment file at every invocation, including shim, `exec`, and credential-helper runs:
+
+- Linux/macOS: `$XDG_CONFIG_HOME/viagh/viagh.env`, usually `~/.config/viagh/viagh.env`
+- Windows: `%AppData%\viagh\viagh.env`
+
+Set `VIAGH_CONFIG_FILE` to load from another path. A template is provided at `.config/viagh/viagh.env` in this repository.
+
+File rules:
+
+- Lines are `KEY=VALUE`, optionally prefixed with `export`. Blank lines and `#` comments are skipped.
+- Variables already present in the process environment take precedence over the file.
+- Empty values are ignored.
+- Values are literal: no shell expansion, command substitution, or variable interpolation is performed. Quote values containing spaces, for example `VIAGH_GIT_NAME='Release Agent'`. Prefer `VIAGH_PRIVATE_KEY` paths or `VIAGH_PRIVATE_KEY_BASE64` over inline PEMs, which span multiple lines.
+- A malformed file is an error and aborts the invocation.
+
 ### Git authorship
 
 Wrapped commit-producing Git commands override repository, global, environment, and command-scope `user.name`/`user.email` configuration by default.
@@ -263,6 +280,7 @@ A command targeting a host other than `VIAGH_HOST` is passed to the real `gh` wi
 
 | Variable | Purpose |
 | --- | --- |
+| `VIAGH_CONFIG_FILE` | Path to an environment file to load at startup; defaults to `$XDG_CONFIG_HOME/viagh/viagh.env`. |
 | `VIAGH_APP_ID` | App ID or client ID used as the JWT issuer. |
 | `VIAGH_PRIVATE_KEY` | Path to the private-key PEM. |
 | `VIAGH_PRIVATE_KEY_PEM` | Inline private-key PEM. |

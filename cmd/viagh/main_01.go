@@ -17,6 +17,9 @@ func main() {
 }
 
 func run(argv []string) int {
+	if err := config.LoadEnvFile(); err != nil {
+		return fail(err)
+	}
 	if len(argv) == 1 {
 		printUsage()
 		return 2

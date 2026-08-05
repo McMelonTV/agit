@@ -1,0 +1,105 @@
+package config
+
+import (
+	"bufio"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+const (
+	envFileName       = "viagh.env"
+	configFileEnv     = "VIAGH_CONFIG_FILE"
+	configFileDirName = "viagh"
+)
+
+// LoadEnvFile applies variables from the viagh environment file to the
+// process environment. An explicit VIAGH_CONFIG_FILE path takes precedence;
+// otherwise $XDG_CONFIG_HOME/viagh/viagh.env is used on Unix and
+// %AppData%\viagh\viagh.env on Windows. A missing file is not an error.
+//
+// Variables already present in the process environment take precedence over
+// the file, and empty values are ignored. Values are literal: no shell
+// expansion, command substitution, or variable interpolation is performed.
+func LoadEnvFile() error {
+	path, err := envFilePath()
+	if err != nil || path == "" {
+		return nil
+	}
+	file, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("open environment file %s: %w", path, err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	lineNumber := 0
+	for scanner.Scan() {
+		lineNumber++
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "export ")
+		key, value, found := strings.Cut(line, "=")
+		if !found {
+			return fmt.Errorf("parse %s: line %d: expected KEY=VALUE", path, lineNumber)
+		}
+		key = strings.TrimSpace(key)
+		if !validEnvKey(key) {
+			return fmt.Errorf("parse %s: line %d: invalid variable name %q", path, lineNumber, key)
+		}
+		value = unquoteEnvValue(strings.TrimSpace(value))
+		if value == "" {
+			continue
+		}
+		if _, exists := os.LookupEnv(key); exists {
+			continue
+		}
+		_ = os.Setenv(key, value)
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	return nil
+}
+
+func envFilePath() (string, error) {
+	if value := os.Getenv(configFileEnv); value != "" {
+		return value, nil
+	}
+	base, err := os.UserConfigDir()
+	if err != nil || base == "" {
+		return "", nil
+	}
+	return filepath.Join(base, configFileDirName, envFileName), nil
+}
+
+func validEnvKey(key string) bool {
+	if key == "" {
+		return false
+	}
+	for i, r := range key {
+		switch {
+		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z', r == '_':
+		case i > 0 && r >= '0' && r <= '9':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func unquoteEnvValue(value string) string {
+	if len(value) >= 2 {
+		if (value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'') {
+			return value[1 : len(value)-1]
+		}
+	}
+	return value
+}
